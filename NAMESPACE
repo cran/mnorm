@@ -1,0 +1,9 @@
+useDynLib(mnorm, .registration=TRUE)
+
+importFrom(Rcpp, evalCpp)
+
+export("dmnorm", "pmnorm", "cmnorm")
+
+export("qnormFast")
+
+export("halton", "seqPrimes")
