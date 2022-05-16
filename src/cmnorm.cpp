@@ -1,9 +1,13 @@
 #include <RcppArmadillo.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 #include "cmnorm.h"
 using namespace Rcpp;
 
+#ifdef _OPENMP
 // [[Rcpp::plugins(openmp)]]
+#endif
 // [[Rcpp::interfaces(r, cpp)]]
 
 //' Parameters of conditional multivariate normal distribution
@@ -33,9 +37,6 @@ List cmnorm(const NumericVector mean,
             Nullable<List> control = R_NilValue,
             const int n_cores = 1)
 {
-  // Multiple cores
-  omp_set_num_threads(n_cores);
-  
   // Deal with control input
   List control1(control);
   bool diff_mean_by_sigma_dg = false;
@@ -81,15 +82,16 @@ List cmnorm(const NumericVector mean,
       stop(stop_message);
     }
     
-    if (n_dim != mean.size())
+    int mean_size_tmp = mean.size();
+    if (n_dim != mean_size_tmp)
     {
       std::string stop_message = "Sizes of 'mean' and 'sigma' do not match. "
         "Please, insure that 'length(mean) == ncol(sigma)'.";
       stop(stop_message);
     }
     
-    if (is_true(any(given_ind < 1)) | 
-        is_true(any(given_ind > n_dim)) |
+    if (is_true(any(given_ind < 1)) || 
+        is_true(any(given_ind > n_dim)) ||
         is_true(any(is_na(given_ind))))
     {
       std::string stop_message = "Elements out of bounds in 'given_ind'. "
@@ -99,7 +101,8 @@ List cmnorm(const NumericVector mean,
       stop(stop_message);
     }
     
-    if (unique(given_ind).size() != n_given)
+    int unique_given_ind_size_tmp = unique(given_ind).size();
+    if (unique_given_ind_size_tmp != n_given)
     {
       std::string stop_message = "Duplicates have been found in 'given_ind'. "
         "Please, insure that 'length(unique(given_ind)) == length(given_ind)'.";
@@ -108,8 +111,8 @@ List cmnorm(const NumericVector mean,
     
     if (n_dependent > 0)
     {
-      if (is_true(any(dependent_ind < 1)) | 
-          is_true(any(dependent_ind > n_dim)) |
+      if (is_true(any(dependent_ind < 1)) || 
+          is_true(any(dependent_ind > n_dim)) ||
           is_true(any(is_na(dependent_ind))))
       {
         std::string stop_message = "Elements out of bounds in 'dependent_ind'. "
@@ -139,7 +142,8 @@ List cmnorm(const NumericVector mean,
     }
     else
     {
-      if ((given_x.size() % n_given) != 0)
+      int given_x_size_tmp = given_x.size();
+      if ((given_x_size_tmp % n_given) != 0)
       {
         std::string stop_message = "Size of 'given_x' do not match the "
           "number of conditioned components of multivariate normal vector. "
@@ -206,33 +210,33 @@ List cmnorm(const NumericVector mean,
   arma::uvec given_arma = as<arma::uvec>(given_ind) - 1;
   
   // Transform given_x to arma
-  arma::mat X_mat = as<arma::mat>(given_x_mat);
+  const arma::mat X_mat = as<arma::mat>(given_x_mat);
   
   // Get separate parameters for dependent and
   // given (conditioned) components
-  arma::rowvec mean_d = mean_arma.elem(dependent_arma).t();
-  arma::rowvec mean_g = mean_arma.elem(given_arma).t();
-  arma::mat sigma_d = sigma_arma.submat(dependent_arma, dependent_arma);
-  arma::mat sigma_g = sigma_arma.submat(given_arma, given_arma);
-  arma::mat sigma_dg = sigma_arma.submat(dependent_arma, given_arma);
+  const arma::rowvec mean_d = mean_arma.elem(dependent_arma).t();
+  const arma::rowvec mean_g = mean_arma.elem(given_arma).t();
+  const arma::mat sigma_d = sigma_arma.submat(dependent_arma, dependent_arma);
+  const arma::mat sigma_g = sigma_arma.submat(given_arma, given_arma);
+  const arma::mat sigma_dg = sigma_arma.submat(dependent_arma, given_arma);
   
   // Estimate preliminary component
-  arma::mat sigma_g_inv = sigma_g.i();
-  arma::mat s12s22 = (sigma_dg * sigma_g_inv);
-  arma::mat s12s22t = s12s22.t();
+  const arma::mat sigma_g_inv = sigma_g.i();
+  const arma::mat s12s22 = (sigma_dg * sigma_g_inv);
+  const arma::mat s12s22t = s12s22.t();
 
   // Estimate conditional mean applying slightly different procedures
   // depending on whether single or multiple cores are used
   arma::mat mean_cond = arma::mat(n, n_dependent);
-  arma::mat mat_tmp = (X_mat.each_row() - mean_g) * s12s22t;
+  const arma::mat mat_tmp = (X_mat.each_row() - mean_g) * s12s22t;
   mean_cond = mat_tmp.each_row() + mean_d;
   
   // Estimate conditional covariance
-  arma::mat sigma_cond = sigma_d - s12s22t.t() * sigma_dg.t();
+  const arma::mat sigma_cond = sigma_d - s12s22t.t() * sigma_dg.t();
   
   // Convert to NumericVector and NumericMatrix
-  NumericMatrix mean_cond_numeric = wrap(mean_cond);
-  NumericMatrix sigma_cond_numeric = wrap(sigma_cond);
+  const NumericMatrix mean_cond_numeric = wrap(mean_cond);
+  const NumericMatrix sigma_cond_numeric = wrap(sigma_cond);
 
   // Assign names if need
   if (is_names)
@@ -261,6 +265,9 @@ List cmnorm(const NumericVector mean,
   if (diff_mean_by_sigma_dg)
   {
     arma::mat diff_mean_by_sigma_dg_mat = arma::mat(n, n_given);
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+    #endif
     for (int i = 0; i < n; i++)
     {
       diff_mean_by_sigma_dg_mat.row(i) = (X_mat.row(i) - mean_g) * 

@@ -1,7 +1,13 @@
 #include <RcppArmadillo.h>
 #include "halton.h"
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 using namespace Rcpp;
 
+#ifdef _OPENMP
+// [[Rcpp::plugins(openmp)]]
+#endif
 // [[Rcpp::interfaces(r, cpp)]]
 
 // Tasks
@@ -43,10 +49,6 @@ NumericMatrix halton(const int n = 1,
                      const bool is_validation = true,
                      const int n_cores = 1)
 {
-  // Multiple cores
-  omp_set_num_threads(n_cores);
-  
-  
   if (is_validation)
   {
     // Check that base are correctly specified
@@ -56,7 +58,7 @@ NumericMatrix halton(const int n = 1,
     }
     
     // Check that base are correctly specified
-    if ((type != "halton") & (type != "richtmyer"))
+    if ((type != "halton") && (type != "richtmyer"))
     {
       stop("Please, insure that 'type' has been provided with a correct value.");
     }
@@ -83,9 +85,12 @@ NumericMatrix halton(const int n = 1,
   // Calculate elements of the richtmyer sequence
   if (type == "richtmyer")
   {
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) if (n_cores > 1)
+    #endif
     for(int b = 0; b < dim; b++)
     {
-      double b_sqrt = sqrt(base[b]);
+      double b_sqrt = std::sqrt(base[b]);
       for(int i = 0; i < n; i++)
       {
         h(i, b) = std::fmod((i + start) * b_sqrt, 1);
@@ -96,6 +101,9 @@ NumericMatrix halton(const int n = 1,
   // Calculate elements of the Halton sequence
   if (type == "halton")
   {
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+    #endif
     for(int b = 0; b < dim; b++)
     {
       for(int i = 0; i < n; i++)

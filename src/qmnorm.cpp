@@ -1,11 +1,15 @@
 #include <RcppArmadillo.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 #include "cmnorm.h"
 #include "dmnorm.h"
 #include "qmnorm.h"
 using namespace Rcpp;
 
+#ifdef _OPENMP
 // [[Rcpp::plugins(openmp)]]
+#endif
 // [[Rcpp::interfaces(r, cpp)]]
 
 // --------------------------------------
@@ -45,9 +49,6 @@ arma::vec qnormFast(arma::vec const &p,
                     bool is_validation = true,
                     const int n_cores = 1)
 {
-  // Multiple cores
-  omp_set_num_threads(n_cores);
-  
   // The number of quantiles to calculate
   const int n = p.size();
   
@@ -55,7 +56,7 @@ arma::vec qnormFast(arma::vec const &p,
   if (is_validation)
   {
     // Check that all levels are within (0, 1) interval
-    if (any(p >= 1) | any(p <= 0))
+    if (any(p >= 1) || any(p <= 0))
     {
       std::string stop_message = "Some values of 'p' are not between 0 and 1. "
       "Please, insure that 'all((p < 1) & (p > 0))'.";
@@ -69,7 +70,7 @@ arma::vec qnormFast(arma::vec const &p,
     }
     
     // Check method
-    if ((method != "Voutier") & (method != "Shore"))
+    if ((method != "Voutier") && (method != "Shore"))
     {
       stop("Please, insure that 'method' value is correct.");
     }
@@ -107,9 +108,12 @@ arma::vec qnormFast(arma::vec const &p,
     // Routine
     double r;
     double q;
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) private(r, q) if (n_cores > 1)
+    #endif
     for (int i = 0; i < n; i++)
     {
-      if ((0.025 <= p.at(i)) & (p.at(i) <= 0.975))
+      if ((0.025 <= p.at(i)) && (p.at(i) <= 0.975))
       {
         q = p.at(i) - 0.5;
         r = std::pow(q, 2.0);
@@ -144,6 +148,9 @@ arma::vec qnormFast(arma::vec const &p,
     // Series C (Applied Statistics). 31 (2): 108–114.
     
     // Routine
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+    #endif
     for (int i = 0; i < n; i++)
     {
       if (p.at(i) >= 0.5)

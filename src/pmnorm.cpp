@@ -5,8 +5,14 @@
 #include "GaussLegendre.h"
 #include "cmnorm.h"
 #include "qmnorm.h"
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 using namespace Rcpp;
 
+#ifdef _OPENMP
+// [[Rcpp::plugins(openmp)]]
+#endif
 // [[Rcpp::interfaces(r, cpp)]]
 
 // --------------------------------------
@@ -65,14 +71,11 @@ List pmnorm(const NumericVector lower,
             Nullable<List> control = R_NilValue,
             const int n_cores = 1)
 {
-  // Multiple cores
-  omp_set_num_threads(n_cores);
-  
   // Create output list
   List return_list;
   
   // Check whether any gradients should be calculated
-  const bool is_grad = (grad_lower | grad_upper | grad_sigma | grad_given);
+  const bool is_grad = (grad_lower || grad_upper || grad_sigma || grad_given);
   
   // Get number of dimensions
   const int n_dim = sigma.nrow();
@@ -87,29 +90,35 @@ List pmnorm(const NumericVector lower,
   // Provide input validation if need
   if (is_validation)
   {
-    if (n_dim != mean.size())
+    int mean_size_tmp = mean.size();
+    if (n_dim != mean_size_tmp)
     {
       std::string stop_message = "Sizes of 'mean' and 'sigma' do not match. "
       "Please, insure that 'length(mean) == ncol(sigma)'.";
       stop(stop_message);
     }
     
-    if (is_true(any(given_ind < 1)) | 
-        is_true(any(given_ind > n_dim)) |
-        is_true(any(is_na(given_ind))))
+    if(n_given > 0)
     {
-      std::string stop_message = "Elements out of bounds in 'given_ind'. "
-      "Please, insure that "
-      "'max(given_ind) <= length(mean)', 'min(given_ind) >= 1' "
-      "and 'all(!is.nan(given_ind)).'";
-      stop(stop_message);
-    }
-    
-    if (unique(given_ind).size() != given_ind.size())
-    {
-      std::string stop_message = "Duplicates have been found in 'given_ind'. "
-      "Please, insure that 'length(unique(given_ind)) == length(given_ind)'.";
-      stop(stop_message);
+      if (is_true(any(given_ind < 1)) || 
+          is_true(any(given_ind > n_dim)) ||
+          is_true(any(is_na(given_ind))))
+      {
+        std::string stop_message = "Elements out of bounds in 'given_ind'. "
+        "Please, insure that "
+        "'max(given_ind) <= length(mean)', 'min(given_ind) >= 1' "
+        "and 'all(!is.nan(given_ind)).'";
+        stop(stop_message);
+      }
+      
+      int unique_given_ind_size_tmp = unique(given_ind).size();
+      int given_ind_size_tmp = given_ind.size();
+      if (unique_given_ind_size_tmp != given_ind_size_tmp)
+      {
+        std::string stop_message = "Duplicates have been found in 'given_ind'. "
+        "Please, insure that 'length(unique(given_ind)) == length(given_ind)'.";
+        stop(stop_message);
+      }
     }
     
     if (!as<arma::mat>(sigma).is_sympd())
@@ -119,7 +128,7 @@ List pmnorm(const NumericVector lower,
       stop(stop_message);
     }
     
-    if ((ordering != "NO") & (ordering != "mean") & (ordering != "variance"))
+    if ((ordering != "NO") && (ordering != "mean") && (ordering != "variance"))
     {
       std::string stop_message = "Incorrect ordering method has been provided. "
       "Please, insure that 'ordering' input argument value is correct.";
@@ -225,8 +234,15 @@ List pmnorm(const NumericVector lower,
   NumericVector dependent_ind;
   IntegerVector ind = Rcpp::seq(1, n_dim);
   LogicalVector given_ind_logical = LogicalVector(n_dim);
-  given_ind_logical[given_ind - 1] = true;
-  dependent_ind = ind[!given_ind_logical];
+  if (n_given > 0)
+  {
+    given_ind_logical[given_ind - 1] = true;
+    dependent_ind = ind[!given_ind_logical];
+  }
+  else
+  {
+    dependent_ind = ind;
+  }
   
   // Vectors to help convert indexes of multivariate normal
   // vector to the ordered indexes of dependent and given components
@@ -400,7 +416,7 @@ List pmnorm(const NumericVector lower,
       prob = prob - pmnorm2(lwr2, upr1, x, adj, adj1, adj2, n_cores);
     }
     
-    if ((!lower1_inf) & (!lower2_inf))
+    if ((!lower1_inf) && (!lower2_inf))
     {
       prob = prob + pmnorm2(lwr1, lwr2, x, adj, adj1, adj2, n_cores);
     }
@@ -450,11 +466,6 @@ List pmnorm(const NumericVector lower,
   
   // Special control variables
   List control_special;
-  
-  // Subtract one from indexes and transform
-  // them into arma format
-  arma::uvec dependent_arma = as<arma::uvec>(dependent_ind) - 1;
-  arma::uvec given_arma = as<arma::uvec>(given_ind) - 1;
   
   // Create vector of zero means
   NumericVector mean_zero_d = NumericVector(n_dependent);
@@ -639,7 +650,7 @@ List pmnorm(const NumericVector lower,
             int counter = 0;
             for (int k = 0; k < n_dependent; k++)
             {
-              if ((k != i) & (k != j))
+              if ((k != i) && (k != j))
               {
                 lower_c(_, counter) = lower_d(_, k);
                 upper_c(_, counter) = upper_d(_, k);
@@ -948,7 +959,9 @@ arma::vec pmnorm2(const arma::vec x1,
                   const int n_cores = 1)
 {
   // Multiple cores
+  #ifdef _OPENMP
   omp_set_num_threads(n_cores);
+  #endif
   
   // Get number of probabilities to calculate
   int n = x1.size();
@@ -957,15 +970,18 @@ arma::vec pmnorm2(const arma::vec x1,
   arma::vec prob(n);
   
   // Some preliminary values
-  arma::vec x1_prob = arma::normcdf(x1);
-  arma::vec x2_prob = arma::normcdf(x2);
-  arma::vec x1_pow = pow(x1, 2.0);
-  arma::vec x2_pow = pow(x2, 2.0);
-  arma::vec x1x2_prob = x1_prob % x2_prob;
-  arma::vec x1x2_sum = x1_pow + x2_pow;
-  arma::vec x1x2_prod = 2 * x1 % x2;
+  const arma::vec x1_prob = arma::normcdf(x1);
+  const arma::vec x2_prob = arma::normcdf(x2);
+  const arma::vec x1_pow = pow(x1, 2.0);
+  const arma::vec x2_pow = pow(x2, 2.0);
+  const arma::vec x1x2_prob = x1_prob % x2_prob;
+  const arma::vec x1x2_sum = x1_pow + x2_pow;
+  const arma::vec x1x2_prod = 2 * x1 % x2;
   
   // Estimation of probabilities for each observation
+  #ifdef _OPENMP
+  #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+  #endif
   for(int i = 0; i < n; i++)
   {
     prob.at(i) = x1x2_prob.at(i) +
@@ -984,9 +1000,6 @@ double GHK(const NumericVector lower,
            const int n_sim = 1000,
            const int n_cores = 1)
 {
-  // Multiple cores
-  omp_set_num_threads(n_cores);
-  
   // Get dimensions of the distribution
   int n_dim = lower.size();
   

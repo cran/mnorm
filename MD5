@@ -1,4 +1,4 @@
-6190bf9d45379b7cb8e0d94e123d5fd4 *DESCRIPTION
+97c58af02e6078a0c6d23846d50af770 *DESCRIPTION
 d7262a2757f46577a62f0f5b73efd6f9 *NAMESPACE
 5c60be9a2e8cb09886368935bbf1fa7b *R/RcppExports.R
 f831b91d049ffff08b0b20ef01a33358 *inst/include/mnorm.h
@@ -14,13 +14,13 @@ d45befbc39dec66913559b79d950d0f0 *src/GaussLegendre.cpp
 74492fcbe4e96685f415840a22af405b *src/Makevars
 88f33c2b6e398aea909381bfbeb7bb60 *src/Makevars.win
 aca92dde3e0118696038420665e9ccba *src/RcppExports.cpp
-487b4ed6d4a24f6b333453a723b8d3ed *src/cmnorm.cpp
+acff9c62e7795f4a2b4a8d99dac1d13a *src/cmnorm.cpp
 e4b9e65fb798d0e359e0f15e757c11ac *src/cmnorm.h
-b3befe1a01a4f035b8ad0b3a45afdf12 *src/dmnorm.cpp
+902c4d8dbae518c0649eb8b6fdd8d4d0 *src/dmnorm.cpp
 1321480771469d36ddd37d23f1b19764 *src/dmnorm.h
-199488db03513ab8aa365156aa9d480d *src/halton.cpp
+0e1ac4417d2325688287c89ba2d08c58 *src/halton.cpp
 06bfce25435684a1e43dac4a2c68babf *src/halton.h
-b28c6bd4ae4a429f16e76769bf7665d6 *src/pmnorm.cpp
+edf51653e9c928636c3e8ce0beca4053 *src/pmnorm.cpp
 af4855b2041784c6ad0b59e160d6e0d5 *src/pmnorm.h
-31c971318b9985b6dd72bf123636ddb9 *src/qmnorm.cpp
+260e6f1c8060dd83670409be1a9185d7 *src/qmnorm.cpp
 ff8648ae65242ebf86e9e155e3c3157c *src/qmnorm.h

@@ -1,10 +1,14 @@
 #include <RcppArmadillo.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 #include "cmnorm.h"
 #include "dmnorm.h"
 using namespace Rcpp;
 
+#ifdef _OPENMP
 // [[Rcpp::plugins(openmp)]]
+#endif
 // [[Rcpp::interfaces(r, cpp)]]
 
 // --------------------------------------
@@ -44,14 +48,11 @@ List dmnorm(const NumericVector x,
             Nullable<List> control = R_NilValue,
             const int n_cores = 1)
 {
-  // Multiple cores
-  omp_set_num_threads(n_cores);
-  
   // Create output list
   List return_list;
   
   // Check whether any gradients should be calculated
-  const bool is_grad = (grad_x | grad_sigma);
+  const bool is_grad = (grad_x || grad_sigma);
 
   // Get number of dimensions
   const int n_dim = sigma.nrow();
@@ -62,11 +63,14 @@ List dmnorm(const NumericVector x,
   // Get number of observations
   const int n = n_total / n_dim;
   
+  // Get the number of conditioned components
+  int n_given = given_ind.size();
+  
   // Deal with control input
   List control1(control);
   LogicalVector is_use;
   int is_use_n = n;
-  if (control !=R_NilValue)
+  if (control != R_NilValue)
   {
     if (control1.containsElementNamed("is_use"))
     {
@@ -78,29 +82,35 @@ List dmnorm(const NumericVector x,
   // Provide input validation if need
   if (is_validation)
   {
-    if (n_dim != mean.size())
+    int mean_size_tmp = mean.size();
+    if (n_dim != mean_size_tmp)
     {
       std::string stop_message = "Sizes of 'mean' and 'sigma' do not match. "
       "Please, insure that 'length(mean) == ncol(sigma)'.";
       stop(stop_message);
     }
     
-    if (is_true(any(given_ind < 1)) | 
-        is_true(any(given_ind > n_dim)) |
-        is_true(any(is_na(given_ind))))
+    if (n_given > 0)
     {
-      std::string stop_message = "Elements out of bounds in 'given_ind'. "
-      "Please, insure that "
-      "'max(given_ind) <= length(mean)', 'min(given_ind) >= 1' "
-      "and 'all(!is.nan(given_ind)).'";
-      stop(stop_message);
-    }
+      if (is_true(any(given_ind < 1)) || 
+          is_true(any(given_ind > n_dim)) ||
+          is_true(any(is_na(given_ind))))
+      {
+        std::string stop_message = "Elements out of bounds in 'given_ind'. "
+        "Please, insure that "
+        "'max(given_ind) <= length(mean)', 'min(given_ind) >= 1' "
+        "and 'all(!is.nan(given_ind)).'";
+        stop(stop_message);
+      }
     
-    if (unique(given_ind).size() != given_ind.size())
-    {
-      std::string stop_message = "Duplicates have been found in 'given_ind'. "
-      "Please, insure that 'length(unique(given_ind)) == length(given_ind)'.";
-      stop(stop_message);
+      int unique_given_ind_size_tmp = unique(given_ind).size();
+      int given_ind_size_tmp = given_ind.size();
+      if (unique_given_ind_size_tmp != given_ind_size_tmp)
+      {
+        std::string stop_message = "Duplicates have been found in 'given_ind'. "
+        "Please, insure that 'length(unique(given_ind)) == length(given_ind)'.";
+        stop(stop_message);
+      }
     }
     
     if (!as<arma::mat>(sigma).is_sympd())
@@ -177,15 +187,19 @@ List dmnorm(const NumericVector x,
     }
   }
   
-  // Get the number of conditioned components
-  int n_given = given_ind.size();
-  
   // Create indexes of dependent variables
   NumericVector dependent_ind;
   IntegerVector ind = Rcpp::seq(1, n_dim);
   LogicalVector given_ind_logical = LogicalVector(n_dim);
-  given_ind_logical[given_ind - 1] = true;
-  dependent_ind = ind[!given_ind_logical];
+  if (n_given > 0)
+  {
+    given_ind_logical[given_ind - 1] = true;
+    dependent_ind = ind[!given_ind_logical];
+  }
+  else
+  {
+    dependent_ind = ind;
+  }
   int n_dependent = dependent_ind.size();
   
   // Account for conditioning
@@ -242,7 +256,6 @@ List dmnorm(const NumericVector x,
   arma::mat const x_d_arma(x_d.begin(), n, n_dependent, false);
   arma::mat const sigma_cond_arma(sigma_cond.begin(), 
                                   n_dependent, n_dependent, false);
-  arma::mat sigma_cond_inv;
   arma::mat const L_cond = chol(sigma_cond_arma, "upper");
   arma::mat const L_cond_inv = trimatu(L_cond).i();
 
@@ -250,7 +263,9 @@ List dmnorm(const NumericVector x,
   arma::vec den_log = arma::vec(n);
   double const det_adj_val = -0.5 * std::log(arma::det(2 * M_PI * 
                                                        sigma_cond_arma));
-  
+  #ifdef _OPENMP
+  #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+  #endif
   for (int i = 0; i < n; i++)
   {
     // Account for triangularity of
@@ -270,9 +285,12 @@ List dmnorm(const NumericVector x,
   
   // Estimate the density itself if need
   arma::vec den;
-  if(!log | (is_grad))
+  if(!log || (is_grad))
   {
     den = arma::vec(n);
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+    #endif
     for (int i = 0; i < n; i++)
     {
       den.at(i) = std::exp(den_log.at(i));
@@ -297,12 +315,16 @@ List dmnorm(const NumericVector x,
   // Subtract one from indexes and transform
   // them into arma format
   arma::uvec dependent_arma = as<arma::uvec>(dependent_ind) - 1;
-  arma::uvec given_arma = as<arma::uvec>(given_ind) - 1;
+  arma::uvec given_arma;
+  if (n_given > 0)
+  {
+    given_arma = as<arma::uvec>(given_ind) - 1;
+  }
 
   // Calculate gradient respect to the argument
     // respect to the arguments of dependent elements
   arma::mat grad_x_arma = arma::mat(n, n_dim);
-  sigma_cond_inv = sigma_cond_arma.i();
+  arma::mat const sigma_cond_inv = sigma_cond_arma.i();
   grad_x_arma.cols(dependent_arma) = x_d_arma * (-sigma_cond_inv);
     // respect to the arguments of given (conditioned) elements
   arma::mat const x_g_arma(x_g.begin(), n, n_given, false);
