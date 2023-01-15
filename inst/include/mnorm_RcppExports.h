@@ -126,16 +126,16 @@ namespace mnorm {
         return Rcpp::as<IntegerVector >(rcpp_result_gen);
     }
 
-    inline List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x = NumericVector(), const NumericVector mean = NumericVector(), const NumericMatrix sigma = NumericMatrix(), const NumericVector given_ind = NumericVector(), const int n_sim = 1000, const String method = "default", const String ordering = "mean", const bool log = false, const bool grad_lower = false, const bool grad_upper = false, const bool grad_sigma = false, const bool grad_given = false, const bool is_validation = true, Nullable<List> control = R_NilValue, const int n_cores = 1) {
-        typedef SEXP(*Ptr_pmnorm)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+    inline List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x = NumericVector(), const NumericVector mean = NumericVector(), const NumericMatrix sigma = NumericMatrix(), const NumericVector given_ind = NumericVector(), const int n_sim = 1000, const String method = "default", const String ordering = "mean", const bool log = false, const bool grad_lower = false, const bool grad_upper = false, const bool grad_sigma = false, const bool grad_given = false, const bool is_validation = true, Nullable<List> control = R_NilValue, const int n_cores = 1, Nullable<List> marginal = R_NilValue, const bool grad_marginal = false, const bool grad_marginal_prob = false) {
+        typedef SEXP(*Ptr_pmnorm)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
         static Ptr_pmnorm p_pmnorm = NULL;
         if (p_pmnorm == NULL) {
-            validateSignature("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,Nullable<List>,const int)");
+            validateSignature("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,Nullable<List>,const int,Nullable<List>,const bool,const bool)");
             p_pmnorm = (Ptr_pmnorm)R_GetCCallable("mnorm", "_mnorm_pmnorm");
         }
         RObject rcpp_result_gen;
         {
-            rcpp_result_gen = p_pmnorm(Shield<SEXP>(Rcpp::wrap(lower)), Shield<SEXP>(Rcpp::wrap(upper)), Shield<SEXP>(Rcpp::wrap(given_x)), Shield<SEXP>(Rcpp::wrap(mean)), Shield<SEXP>(Rcpp::wrap(sigma)), Shield<SEXP>(Rcpp::wrap(given_ind)), Shield<SEXP>(Rcpp::wrap(n_sim)), Shield<SEXP>(Rcpp::wrap(method)), Shield<SEXP>(Rcpp::wrap(ordering)), Shield<SEXP>(Rcpp::wrap(log)), Shield<SEXP>(Rcpp::wrap(grad_lower)), Shield<SEXP>(Rcpp::wrap(grad_upper)), Shield<SEXP>(Rcpp::wrap(grad_sigma)), Shield<SEXP>(Rcpp::wrap(grad_given)), Shield<SEXP>(Rcpp::wrap(is_validation)), Shield<SEXP>(Rcpp::wrap(control)), Shield<SEXP>(Rcpp::wrap(n_cores)));
+            rcpp_result_gen = p_pmnorm(Shield<SEXP>(Rcpp::wrap(lower)), Shield<SEXP>(Rcpp::wrap(upper)), Shield<SEXP>(Rcpp::wrap(given_x)), Shield<SEXP>(Rcpp::wrap(mean)), Shield<SEXP>(Rcpp::wrap(sigma)), Shield<SEXP>(Rcpp::wrap(given_ind)), Shield<SEXP>(Rcpp::wrap(n_sim)), Shield<SEXP>(Rcpp::wrap(method)), Shield<SEXP>(Rcpp::wrap(ordering)), Shield<SEXP>(Rcpp::wrap(log)), Shield<SEXP>(Rcpp::wrap(grad_lower)), Shield<SEXP>(Rcpp::wrap(grad_upper)), Shield<SEXP>(Rcpp::wrap(grad_sigma)), Shield<SEXP>(Rcpp::wrap(grad_given)), Shield<SEXP>(Rcpp::wrap(is_validation)), Shield<SEXP>(Rcpp::wrap(control)), Shield<SEXP>(Rcpp::wrap(n_cores)), Shield<SEXP>(Rcpp::wrap(marginal)), Shield<SEXP>(Rcpp::wrap(grad_marginal)), Shield<SEXP>(Rcpp::wrap(grad_marginal_prob)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -144,26 +144,6 @@ namespace mnorm {
         if (rcpp_result_gen.inherits("try-error"))
             throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<List >(rcpp_result_gen);
-    }
-
-    inline arma::vec pmnorm2(const arma::vec x1, const arma::vec x2, const arma::vec x, const arma::vec adj, const arma::vec adj1, const arma::vec adj2, const int n_cores = 1) {
-        typedef SEXP(*Ptr_pmnorm2)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
-        static Ptr_pmnorm2 p_pmnorm2 = NULL;
-        if (p_pmnorm2 == NULL) {
-            validateSignature("arma::vec(*pmnorm2)(const arma::vec,const arma::vec,const arma::vec,const arma::vec,const arma::vec,const arma::vec,const int)");
-            p_pmnorm2 = (Ptr_pmnorm2)R_GetCCallable("mnorm", "_mnorm_pmnorm2");
-        }
-        RObject rcpp_result_gen;
-        {
-            rcpp_result_gen = p_pmnorm2(Shield<SEXP>(Rcpp::wrap(x1)), Shield<SEXP>(Rcpp::wrap(x2)), Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(adj)), Shield<SEXP>(Rcpp::wrap(adj1)), Shield<SEXP>(Rcpp::wrap(adj2)), Shield<SEXP>(Rcpp::wrap(n_cores)));
-        }
-        if (rcpp_result_gen.inherits("interrupted-error"))
-            throw Rcpp::internal::InterruptedException();
-        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
-            throw Rcpp::LongjumpException(rcpp_result_gen);
-        if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
-        return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
     inline double GHK(const NumericVector lower, const NumericVector upper, const NumericMatrix sigma, const arma::mat h, const String ordering = "default", const int n_sim = 1000, const int n_cores = 1) {
@@ -204,6 +184,27 @@ namespace mnorm {
         if (rcpp_result_gen.inherits("try-error"))
             throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
+    }
+
+    inline NumericMatrix rmnorm(const int n, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind = NumericVector(), const NumericVector given_x = NumericVector(), const NumericVector dependent_ind = NumericVector(), const bool is_validation = true, const int n_cores = 1) {
+        typedef SEXP(*Ptr_rmnorm)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+        static Ptr_rmnorm p_rmnorm = NULL;
+        if (p_rmnorm == NULL) {
+            validateSignature("NumericMatrix(*rmnorm)(const int,const NumericVector,const NumericMatrix,const NumericVector,const NumericVector,const NumericVector,const bool,const int)");
+            p_rmnorm = (Ptr_rmnorm)R_GetCCallable("mnorm", "_mnorm_rmnorm");
+        }
+        RObject rcpp_result_gen;
+        {
+            RNGScope RCPP_rngScope_gen;
+            rcpp_result_gen = p_rmnorm(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(mean)), Shield<SEXP>(Rcpp::wrap(sigma)), Shield<SEXP>(Rcpp::wrap(given_ind)), Shield<SEXP>(Rcpp::wrap(given_x)), Shield<SEXP>(Rcpp::wrap(dependent_ind)), Shield<SEXP>(Rcpp::wrap(is_validation)), Shield<SEXP>(Rcpp::wrap(n_cores)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<NumericMatrix >(rcpp_result_gen);
     }
 
 }

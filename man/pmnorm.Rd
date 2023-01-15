@@ -21,7 +21,10 @@ pmnorm(
   grad_given = FALSE,
   is_validation = TRUE,
   control = NULL,
-  n_cores = 1L
+  n_cores = 1L,
+  marginal = NULL,
+  grad_marginal = FALSE,
+  grad_marginal_prob = FALSE
 )
 }
 \arguments{
@@ -91,6 +94,35 @@ performance boost (default value is \code{TRUE}).}
 \item{n_cores}{positive integer representing the number of CPU cores
 used for parallel computing. Currently it is not recommended to set
 \code{n_cores > 1} if vectorized arguments include less then 100000 elements.}
+
+\item{marginal}{list such that \code{marginal[[i]]}
+represents parameters of marginal distribution of the \code{i}-th component
+of the random vector and \code{names(marginal)[i]} is a name of
+this distribution. 
+If \code{names(marginal)[i] = "logistic"} 
+or \code{names(marginal)[i] = "normal"} 
+then \code{marginal[[i]]} should be an empty vector or \code{NULL}. 
+If \code{names(marginal)[i] = "student"} then
+\code{marginal[[i]]} should contain a single element representing
+degrees of freedom.
+If \code{names(marginal)[i] = "PGN"}
+or \code{names(marginal)[i] = "hpa"} then 
+\code{marginal[[i]]} should be a numeric vector which elements
+correspond to \code{pc} argument of \code{\link[hpa]{phpa0}}.}
+
+\item{grad_marginal}{logical; if \code{TRUE} then the vector of partial
+derivatives (gradient) of probability will be calculated respect to 
+each parameter of marginal distributions i.e. respect to
+each element of \code{marginal}. The gradient respect to the parameters
+of the \code{i}-th marginal distribution will be stored in the
+\code{grad_marginal[[i]]} output matrix which \code{j}-th column
+stores derivatives respect to \code{marginal[[i]][j]}.
+Currently derivatives are available only respect to parameters 
+of \code{"PGN"} distribution.}
+
+\item{grad_marginal_prob}{logical; if \code{TRUE} then the vector of partial
+derivatives (gradient) of probability will be calculated respect to 
+each cumulative marginal probability of marginal distributions.}
 }
 \value{
 This function returns an object of class "mnorm_pmnorm".\cr \cr
@@ -107,6 +139,10 @@ will be between \code{lower} and \code{upper} bounds.
 if \code{grad_sigma} input argument is set to \code{TRUE}.
 \item \code{grad_given} - gradient respect to the elements of \code{given_x}
 if \code{grad_given} input argument is set to \code{TRUE}.
+\item \code{grad_marginal} - gradient respect to the elements of 
+\code{marginal_par} if \code{grad_marginal} input argument is set 
+to \code{TRUE}. Currently only derivatives respect to the parameters
+of \code{"PGN"} distribution are available.
 }
 
 If \code{log} is \code{TRUE} then \code{prob} is a log-probability
@@ -121,6 +157,11 @@ is a Jacobian matrix respect to \code{given_x}.
 Output \code{grad_sigma} is a 3D array such that \code{grad_sigma[i, j, k]} 
 is a partial derivative of the probability function respect to the 
 \code{sigma[i, j]} estimated for \code{k}-th observation.
+
+Output \code{grad_marginal} is a list such that \code{grad_marginal[[i]]} 
+is a Jacobian matrice which rows are gradients of the probabilities 
+calculated for each row of \code{lower} and \code{upper} correspondingly
+respect to the elements of \code{marginal_par[[i]]}.
 }
 \description{
 This function calculates and differentiates probabilities of
@@ -140,6 +181,7 @@ Also \code{given_x} should have the same number of rows as \code{lower}
 and \code{upper}.
  
 To calculate bivariate probabilities the function applies the method 
+of Drezner and Wesolowsky
 described in A. Genz (2004). In contrast to the classical implementation of 
 this method the function applies Gauss-Legendre quadrature with 30 
 sample points to approximate integral (1) of A. Genz (2004). Classical
@@ -147,6 +189,10 @@ implementations of this method use up to 20 points but requires some
 additional transformations of (1). During preliminary testing it has been 
 found that approach with 30 points provides similar accuracy being 
 slightly faster because of better vectorization capabilities.
+
+To calculate trivariate probabilities the function uses Drezner method
+following formula (14) of A. Genz (2004). Similarly to bivariate
+case 30 points are used in Gauss-Legendre quadrature.
  
 For \eqn{m}-variate probabilities, where \eqn{m>2}, the function applies
 GHK algorithm described in section 4.2 of A. Genz and F. Bretz (2009).
@@ -260,6 +306,47 @@ be found in the appendix of E. Kossova and B. Potanin (2018).
 Currently \code{control} has no input arguments intended for
 the users. This argument is used for some internal purposes
 of the package.
+
+If \code{marginal} is not empty then Gaussian copula will be used instead of
+a classical multivariate normal distribution. Without loss of generality
+let's assume that \eqn{\mu} is a vector of zeros and introduce some
+additional notations:
+\deqn{
+q_{i}^{(u)} = \Phi^{-1}\left(P_{i}\left(\frac{x_{i}^{(u)}}{\sigma_{i}}\right)\right)
+}
+\deqn{
+q_{i}^{(l)} = \Phi^{-1}\left(P_{i}\left(\frac{x_{i}^{(l)}}{\sigma_{i}}\right)\right)
+}
+where \eqn{\Phi(.)^{-1}} is a quantile function of a standard
+normal distribution and \eqn{P_{i}} is a cumulative distribution function
+of the standartized (to zero mean and unit variance) marginal distribution 
+which name and parameters are defined by 
+\code{names(marginal)[i]} and \code{marginal[[i]]} correspondingly. 
+For example if \code{marginal[i] = "logistic"} then:
+\deqn{
+P_{i}(t) = \frac{1}{1+e^{-\pi t / \sqrt{3}}}
+}
+
+Let's denote by \eqn{X^{*}} random vector which is distributed
+with Gaussian (it's covariance matrix is \eqn{\Sigma}) copula and 
+marginals defined by \code{marginal}.
+Then probabilities for these random vector are calculated as follows:
+\deqn{P\left(x^{(l)}\leq X^{*}\leq 
+x^{(u)}\right) = 
+P\left(\sigma q^{(l)}\leq X\leq 
+\sigma q^{(u)}\right) = P_{0}\left(\sigma q^{(l)}, \sigma q^{(u)}\right)}
+
+where \eqn{q^{(l)} = (q_{1}^{(l)},...,q_{m}^{(l)})},
+\eqn{q^{(u)} = (q_{1}^{(u)},...,q_{m}^{(u)})} and 
+\eqn{\sigma = (\sqrt{\Sigma_{1, 1}},...,\sqrt{\Sigma_{m, m}})}. Therefore
+probabilities of \eqn{X^{*}} may be calculated using probabilities
+of multivariate normal random vector \eqn{X} (with the same
+covariance matrix) by
+substituting lower and upper integration limits \eqn{x^{(l)}} and
+\eqn{x^{(u)}} with \eqn{\sigma q^{(l)}} and \eqn{\sigma q^{(u)}} 
+correspondingly. Therefore differentiation formulas are similar to
+those mentioned above and will be automatically adjusted if
+\code{marginal} is not empty (including conditional probabilities).
 }
 \examples{
 # Consider multivariate normal vector:
@@ -326,15 +413,11 @@ p.3 <- p.list.3$prob
 print(p.3)
 
 # Estimate the gradient of previous probabilities respect various arguments
-# and increase the accuracy of estimates by increasing the number
-# of Halton sequence draws
-n_sim <- 5000
 p.list.4 <- pmnorm(lower = lower.mat.2, upper = upper.mat.2,
                    mean = mean, sigma = sigma,
                    given_ind = given_ind, given_x = given_x.mat,
                    grad_lower = TRUE, grad_upper = TRUE,
-                   grad_sigma = TRUE, grad_given = TRUE,
-                   n_sim = n_sim)
+                   grad_sigma = TRUE, grad_given = TRUE)
 p.4 <- p.list.4$prob
 print(p.4)
 # Gradient respect to 'lower'
@@ -381,8 +464,7 @@ for (i in 1:n_dependent)
   p.list.delta <- pmnorm(lower = lower.delta, upper = upper.2,
                          given_x = given_x,
                          mean = mean, sigma = sigma,
-                         given_ind = given_ind,
-                         n_sim = n_sim)
+                         given_ind = given_ind)
   grad_lower.num[i] <- (p.list.delta$prob - p.list.4$prob[1]) / delta
   # respect to upper
   upper.delta <- upper.2
@@ -390,8 +472,7 @@ for (i in 1:n_dependent)
   p.list.delta <- pmnorm(lower = lower.2, upper = upper.delta,
                          given_x = given_x,
                          mean = mean, sigma = sigma,
-                         given_ind = given_ind,
-                         n_sim = n_sim)
+                         given_ind = given_ind)
   grad_upper.num[i] <- (p.list.delta$prob - p.list.4$prob[1]) / delta
 }
 for (i in 1:n_given)
@@ -402,8 +483,7 @@ for (i in 1:n_given)
   p.list.delta <- pmnorm(lower = lower.2, upper = upper.2,
                          given_x = given_x.delta,
                          mean = mean, sigma = sigma,
-                         given_ind = given_ind,
-                         n_sim = n_sim)
+                         given_ind = given_ind)
   grad_given.num[i] <- (p.list.delta$prob - p.list.4$prob[1]) / delta
 }
 for (i in 1:n_dim)
@@ -417,8 +497,7 @@ for (i in 1:n_dim)
     p.list.delta <- pmnorm(lower = lower.2, upper = upper.2,
                            given_x = given_x,
                            mean = mean, sigma = sigma.delta,
-                           given_ind = given_ind,
-                           n_sim = n_sim)
+                           given_ind = given_ind)
     grad_sigma.num[i, j] <- (p.list.delta$prob - p.list.4$prob[1]) / delta
   }
 }
@@ -438,6 +517,32 @@ print(h.given)
 h.sigma <- list(analytical = p.list.4$grad_sigma[, , 1], 
                 numeric = grad_sigma.num)
 print(h.sigma)
+
+# Let's again estimate probability
+# P(-1 < X1 < 1, -3 < X3 < 3, -5 < X5 < 5 | X2 = -2, X4 = 4)
+# But assume that standardized (to zero mean and unit variance): 
+# 1) X1 and X2 have standardized PGN distribution with coefficients vectors
+#    pc1 = (0.5, -0.2, 0.1) and pc2 = (0.2, 0.05) correspondingly.
+# 2) X3 has standardized student distribution with 5 degrees of freedom
+# 3) X4 has standardized logistic distribution
+# 4) X5 has standard normal distribution
+marginal <- list(PGN = c(0.5, -0.2, 0.1), hpa = c(0.2, 0.05), 
+                 student = 5, logistic = numeric(), normal = NULL)
+p.list.5 <- pmnorm(lower = lower.2, upper = upper.2,
+                   mean = mean, sigma = sigma,
+                   given_ind = given_ind, given_x = given_x,
+                   grad_lower = TRUE, grad_upper = TRUE,
+                   grad_sigma = TRUE, grad_given = TRUE,
+                   marginal = marginal, grad_marginal = TRUE)     
+# Lets investigate derivatives respect to parameters
+# of marginal distributions
+  # respect to pc1 of X1
+p.list.5$grad_marginal[[1]]              
+  # respect to pc2 of X2
+p.list.5$grad_marginal[[2]]  
+  # derivative respect to degrees of freedom of X5 is
+  # currently unavailable and will be set to 0
+p.list.5$grad_marginal[[3]]                    
 }
 \references{
 Genz, A. (2004), Numerical computation of rectangular bivariate 
@@ -448,7 +553,7 @@ Genz, A. and Bretz, F. (2009), Computation of Multivariate
 Normal and t Probabilities. Lecture Notes in Statistics, Vol. 195. 
 Springer-Verlag, Heidelberg.
 
-E. Kossova., B. Potanin (2018). 
+E. Kossova, B. Potanin (2018). 
 Heckman method and switching regression model multivariate generalization.
 Applied Econometrics, vol. 50, pages 114-143.
 }

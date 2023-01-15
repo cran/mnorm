@@ -111,7 +111,7 @@ and \eqn{x^{(g)}} are of the form:
 
 If \code{grad_sigma} is \code{TRUE} then function additionally estimates
 the gradient respect to the elements of covariance matrix \eqn{\Sigma}.
-For \eqn{i\in I_{d}} and \eqn{j\in I_{g}} the function calculates:
+For \eqn{i\in I_{d}} and \eqn{j\in I_{d}} the function calculates:
 \deqn{
 \frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial \Sigma_{i, j}} = 
 \frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial x_{i}} \times 
@@ -150,7 +150,7 @@ For \eqn{i\in I_{g}} and \eqn{j\in I_{g}} the following formula is used:
 \left(x^{(g)}\times(\Sigma_{d,g} \times \Sigma_{g,g}^{-1} \times I_{g}^{*} \times 
 \Sigma_{g,g}^{-1})^{T}\right)^T -
 }\deqn{
--\sum\limits_{k_{1}=1}^{n_{d}}\sum\limits_{k_{2}=1}^{n_{d}}
+-\sum\limits_{k_{1}=1}^{n_{d}}\sum\limits_{k_{2}=k_{1}}^{n_{d}}
 \frac{\partial \ln f(x^{(d)}|x^{(g)})}
 {\partial \Sigma_{q_{d}(k_{1})^{-1}, q_{d}(k_{2})^{-1}}}
 \left(\Sigma_{d,g} \times \Sigma_{g,g}^{-1} \times I_{g}^{*} \times 

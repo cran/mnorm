@@ -2,7 +2,9 @@ useDynLib(mnorm, .registration=TRUE)
 
 importFrom(Rcpp, evalCpp)
 
-export("dmnorm", "pmnorm", "cmnorm")
+import(hpa)
+
+export("dmnorm", "pmnorm", "cmnorm", "rmnorm")
 
 export("qnormFast")
 

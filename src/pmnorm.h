@@ -20,15 +20,10 @@ List pmnorm(const NumericVector lower, const NumericVector upper,
             const bool grad_given,
             const bool is_validation,
             Nullable<List> control,
-            const int n_cores);
-
-arma::vec pmnorm2(const arma::vec x1,
-                  const arma::vec x2,
-                  const arma::vec x,
-                  const arma::vec adj,
-                  const arma::vec adj1,
-                  const arma::vec adj2,
-                  const int n_cores);
+            const int n_cores,
+            Nullable<List> marginal,
+            const bool grad_marginal,
+            const bool grad_marginal_prob);
   
 double GHK(const NumericVector lower, 
            const NumericVector upper, 

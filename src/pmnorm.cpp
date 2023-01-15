@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <hpa.h>
 #include "halton.h"
 #include "pmnorm.h"
 #include "dmnorm.h"
@@ -40,6 +41,9 @@ using namespace Rcpp;
 //' @template param_is_validation_Template
 //' @template param_control_Template
 //' @template param_n_cores_Template
+//' @template param_marginal_Template
+//' @template param_grad_marginal_Template
+//' @template param_grad_marginal_prob_Template
 //' @template return_pmnorm_Template
 //' @template example_pmnorm_Template
 //' @references Genz, A. (2004), Numerical computation of rectangular bivariate 
@@ -48,7 +52,7 @@ using namespace Rcpp;
 //' @references Genz, A. and Bretz, F. (2009), Computation of Multivariate 
 //' Normal and t Probabilities. Lecture Notes in Statistics, Vol. 195. 
 //' Springer-Verlag, Heidelberg.
-//' @references E. Kossova., B. Potanin (2018). 
+//' @references E. Kossova, B. Potanin (2018). 
 //' Heckman method and switching regression model multivariate generalization.
 //' Applied Econometrics, vol. 50, pages 114-143.
 //' @export
@@ -69,13 +73,23 @@ List pmnorm(const NumericVector lower,
             const bool grad_given = false,
             const bool is_validation = true,
             Nullable<List> control = R_NilValue,
-            const int n_cores = 1)
+            const int n_cores = 1,
+            Nullable<List> marginal = R_NilValue,
+            const bool grad_marginal = false,
+            const bool grad_marginal_prob = false)
 {
+  // Future updates
+  // 1) Add derivative respect to degrees of freedom of Student distribution
+  //    and then remove text that there is no such deriative in
+  //    'examples_pmnorm_Template', 'return_pmnorm_Template' and 
+  //    'param_grad_marginal_Template'
+  
   // Create output list
   List return_list;
   
   // Check whether any gradients should be calculated
-  const bool is_grad = (grad_lower || grad_upper || grad_sigma || grad_given);
+  const bool is_grad = (grad_lower || grad_upper || grad_sigma || 
+                        grad_given || grad_marginal);
   
   // Get number of dimensions
   const int n_dim = sigma.nrow();
@@ -86,6 +100,15 @@ List pmnorm(const NumericVector lower,
   
   // Get number of observations
   const int n = lower.size() / n_dependent;
+  
+  // Get the size of marginal distributions list
+  List marginal_par(marginal);
+  int n_marginal = 0;
+  if (marginal != R_NilValue)
+  {
+    n_marginal = marginal_par.size();
+  }
+  const bool is_marginal = n_marginal > 0;
   
   // Provide input validation if need
   if (is_validation)
@@ -140,6 +163,17 @@ List pmnorm(const NumericVector lower,
     {
       stop("Please, insure that 'n_cores' is a positive integer.");
     }
+    
+    // Check correctness of marginal gradients
+    if (grad_marginal_prob)
+    {
+      if (!grad_marginal)
+      {
+        std::string stop_message = "If 'grad_marginal_prob' is 'TRUE' "
+        "then 'grad_marginal' also should be 'TRUE'.";
+        stop(stop_message);
+      }
+    }
   }
   
   // Deal with control input
@@ -155,6 +189,23 @@ List pmnorm(const NumericVector lower,
     }
   }
   
+  // Get marginal distributions parameters
+  NumericVector n_marginal_par;
+  CharacterVector marginal_names;
+  if (is_marginal)
+  {
+    marginal_names = marginal_par.names();
+    n_marginal_par = NumericVector(n_dim);
+    if (n_marginal != n_dim)
+    {
+      std::string stop_message = "Wrong size of 'marginal_par' argument. "
+      "Please, insure that it's length coincide with the number of "
+      "multivariate normal distribution dimensions "
+      "(including conditioned elements)";
+      stop(stop_message);
+    }
+  }
+
   // Convert vector of lower and upper arguments
   // as well as a vector of conditioned value into 
   // a matrix if need
@@ -213,7 +264,7 @@ List pmnorm(const NumericVector lower,
                                   n_sim, method, ordering, log,
                                   false, false, false, false,
                                   false, 
-                                  R_NilValue, n_cores);
+                                  R_NilValue, n_cores, marginal);
     NumericVector prob_use = return_list_use["prob"];
     NumericVector prob_new(n);
     counter_use = 0;
@@ -278,6 +329,293 @@ List pmnorm(const NumericVector lower,
       upper_mat(i, j) = upper_mat(i, j) - mean[j_d];
     }
   }
+  if (n_given > 0)
+  {
+    for (int i = 0; i < n; i++)
+    {
+      for (int j = 0; j < n_given; j++)
+      {
+        int j_g = g_to_ind(j);
+        given_x_mat(i, j) = given_x_mat(i, j) - mean[j_g];
+      }
+    }
+  }
+  
+  // Account for marginal distributions if need
+  arma::mat q_lower;
+  arma::mat q_upper;
+  arma::mat q_given;
+  arma::mat lower_d_marginal;
+  arma::mat upper_d_marginal;
+  arma::mat given_d_marginal;
+  arma::mat lower_mat0;
+  arma::mat upper_mat0;
+  arma::mat given_x_mat0;
+  arma::field<arma::mat> grad_marginal_list_lower;
+  arma::field<arma::mat> grad_marginal_list_upper;
+  arma::field<arma::mat> grad_marginal_list_given;
+  if (is_marginal)
+  {
+    // Initialize some matrices
+    lower_d_marginal = arma::mat(n, n_dependent);
+    upper_d_marginal = arma::mat(n, n_dependent);
+    if (n_given > 0)
+    {
+      given_d_marginal = arma::mat(n, n_given);
+      grad_marginal_list_given = arma::field<arma::mat>(n_given);
+    }
+    grad_marginal_list_lower = arma::field<arma::mat>(n_dependent);
+    grad_marginal_list_upper = arma::field<arma::mat>(n_dependent);
+    if (grad_sigma)
+    {
+      q_lower = arma::mat(n, n_dependent);
+      q_upper = arma::mat(n, n_dependent);
+      lower_mat0 = as<arma::mat>(lower_mat);
+      upper_mat0 = as<arma::mat>(upper_mat);
+      if (n_given > 0)
+      {
+        q_given = arma::mat(n, n_given);
+        given_x_mat0 = as<arma::mat>(given_x_mat);
+      }
+    }
+    // Calculate adjusted arguments
+    for (int i = 0; i < n_dim; i++)
+    {
+      if (marginal_names[i] != "normal")
+      {
+        // Preliminary vector to store some
+        // derivatives information
+        NumericVector grad_tmp_lower;
+        NumericVector grad_tmp_upper;
+        NumericVector grad_tmp_given;
+        arma::mat grad_tmp_marginal_lower;
+        arma::mat grad_tmp_marginal_upper;
+        arma::mat grad_tmp_marginal_given;
+        
+        // Impose standardization
+        double sigma_sqrt = sqrt(sigma(i, i));
+        int i_adj;
+        if (given_ind_logical[i])
+        {
+          i_adj = ind_to_g[i];
+          given_x_mat(_, i_adj) = given_x_mat(_, i_adj) / sigma_sqrt;
+        }
+        else
+        {
+          i_adj = ind_to_d[i];
+          lower_mat(_, i_adj) = lower_mat(_, i_adj) / sigma_sqrt;
+          upper_mat(_, i_adj) = upper_mat(_, i_adj) / sigma_sqrt;
+        }
+        // Logistic distribution
+        if (marginal_names[i] == "logistic")
+        {
+          n_marginal_par[i] = 0;
+          double marginal_sd = arma::datum::pi / sqrt(3.0);
+          double sd_ratio = marginal_sd / sigma_sqrt;
+          if (given_ind_logical[i])
+          {
+            NumericVector arg_tmp = marginal_sd * given_x_mat(_, i_adj);
+            if (is_grad)
+            {
+              grad_tmp_given = Rcpp::dlogis(arg_tmp, 0.0, 1.0);
+              grad_tmp_given = sd_ratio * grad_tmp_given;
+            }
+            given_x_mat(_, i_adj) = Rcpp::plogis(arg_tmp, 0.0, 1.0);
+            given_x_mat(_, i_adj) = Rcpp::qnorm(given_x_mat(_, i_adj), 0.0, 1.0);
+            if (grad_sigma)
+            {
+              NumericVector vec_tmp = given_x_mat(_, i_adj);
+              q_given.col(i_adj) = as<arma::vec>(vec_tmp);
+            }
+          }
+          else
+          {
+            NumericVector arg_tmp_lower = marginal_sd * lower_mat(_, i_adj);
+            NumericVector arg_tmp_upper = marginal_sd * upper_mat(_, i_adj);
+            if (is_grad)
+            {
+              grad_tmp_lower = Rcpp::dlogis(arg_tmp_lower, 0.0, 1.0);
+              grad_tmp_upper = Rcpp::dlogis(arg_tmp_upper, 0.0, 1.0);
+              grad_tmp_lower = sd_ratio * grad_tmp_lower;
+              grad_tmp_upper = sd_ratio * grad_tmp_upper;
+            }
+            lower_mat(_, i_adj) = Rcpp::plogis(arg_tmp_lower, 0.0, 1.0);
+            upper_mat(_, i_adj) = Rcpp::plogis(arg_tmp_upper, 0.0, 1.0);
+            lower_mat(_, i_adj) = Rcpp::qnorm(lower_mat(_, i_adj), 0.0, 1.0);
+            upper_mat(_, i_adj) = Rcpp::qnorm(upper_mat(_, i_adj), 0.0, 1.0);
+            if (grad_sigma)
+            {
+              NumericVector vec_tmp = lower_mat(_, i_adj);
+              q_lower.col(i_adj) = as<arma::vec>(vec_tmp);
+              vec_tmp = upper_mat(_, i_adj);
+              q_upper.col(i_adj) = as<arma::vec>(vec_tmp);
+            }
+          }
+        }
+        // Student distribution
+        if (marginal_names[i] == "student")
+        {
+          n_marginal_par[i] = 1;
+          double df = marginal_par[i];
+          if (df <= 2)
+          {
+            stop("Degrees of freedom of Student distribution should be greater than 2");
+          }
+          double marginal_sd = sqrt(df / (df - 2));
+          double sd_ratio = marginal_sd / sigma_sqrt;
+          if (given_ind_logical[i])
+          {
+            NumericVector arg_tmp = marginal_sd * given_x_mat(_, i_adj);
+            if (is_grad)
+            {
+              grad_tmp_given = Rcpp::dt(arg_tmp, df);
+              grad_tmp_given = sd_ratio * grad_tmp_given;
+            }
+            given_x_mat(_, i_adj) = Rcpp::pt(arg_tmp, df);
+            given_x_mat(_, i_adj) = Rcpp::qnorm(given_x_mat(_, i_adj), 0.0, 1.0);
+            if (grad_sigma)
+            {
+              NumericVector vec_tmp = given_x_mat(_, i_adj);
+              q_given.col(i_adj) = as<arma::vec>(vec_tmp);
+            }
+          }
+          else
+          {
+            NumericVector arg_tmp_lower = marginal_sd * lower_mat(_, i_adj);
+            NumericVector arg_tmp_upper = marginal_sd * upper_mat(_, i_adj);
+            if (is_grad)
+            {
+              grad_tmp_lower = Rcpp::dt(arg_tmp_lower, df);
+              grad_tmp_upper = Rcpp::dt(arg_tmp_upper, df);
+              grad_tmp_lower = sd_ratio * grad_tmp_lower;
+              grad_tmp_upper = sd_ratio * grad_tmp_upper;
+            }
+            lower_mat(_, i_adj) = Rcpp::pt(arg_tmp_lower, df);
+            upper_mat(_, i_adj) = Rcpp::pt(arg_tmp_upper, df);
+            lower_mat(_, i_adj) = Rcpp::qnorm(lower_mat(_, i_adj), 0.0, 1.0);
+            upper_mat(_, i_adj) = Rcpp::qnorm(upper_mat(_, i_adj), 0.0, 1.0);
+            if (grad_sigma)
+            {
+              NumericVector vec_tmp = lower_mat(_, i_adj);
+              q_lower.col(i_adj) = as<arma::vec>(vec_tmp);
+              vec_tmp = upper_mat(_, i_adj);
+              q_upper.col(i_adj) = as<arma::vec>(vec_tmp);
+            }
+          }
+        }
+        // PGN distribution
+        if ((marginal_names[i] == "PGN") || (marginal_names[i] == "hpa"))
+        {
+          NumericVector pc = marginal_par[i];
+          n_marginal_par[i] = pc.size();
+          if (given_ind_logical[i])
+          {
+            List hpa_grad = hpa::phpa0(given_x_mat(_, i_adj), pc, 
+                                       0, 1, false, false, false, true);
+            if (is_grad)
+            {
+              grad_tmp_given = hpa_grad["grad_x"];
+              grad_tmp_given = grad_tmp_given / sigma_sqrt;
+              NumericMatrix mat_tmp = hpa_grad["grad_pc"];
+              grad_tmp_marginal_given = as<arma::mat>(mat_tmp);
+            }
+            NumericVector hpa_tmp = hpa_grad["prob"];
+            given_x_mat(_, i_adj) = hpa_tmp;
+            given_x_mat(_, i_adj) = Rcpp::qnorm(given_x_mat(_, i_adj), 0.0, 1.0);
+            if (grad_sigma)
+            {
+              NumericVector vec_tmp = given_x_mat(_, i_adj);
+              q_given.col(i_adj) = as<arma::vec>(vec_tmp);
+            }
+          }
+          else
+          {
+            List hpa_grad_lower = hpa::phpa0(lower_mat(_, i_adj), pc, 
+                                             0, 1, false, false, false, true);
+            List hpa_grad_upper = hpa::phpa0(upper_mat(_, i_adj), pc, 
+                                             0, 1, false, false, false, true);
+            if (is_grad)
+            {
+              grad_tmp_lower = hpa_grad_lower["grad_x"];
+              grad_tmp_lower = grad_tmp_lower / sigma_sqrt;
+              grad_tmp_upper = hpa_grad_upper["grad_x"];
+              grad_tmp_upper = grad_tmp_upper / sigma_sqrt;
+              NumericMatrix mat_tmp1 = hpa_grad_lower["grad_pc"];
+              grad_tmp_marginal_lower = as<arma::mat>(mat_tmp1);
+              NumericMatrix mat_tmp2 = hpa_grad_upper["grad_pc"];
+              grad_tmp_marginal_upper = as<arma::mat>(mat_tmp2);
+            }
+            NumericVector hpa_tmp_lower = hpa_grad_lower["prob"];
+            NumericVector hpa_tmp_upper = hpa_grad_upper["prob"];
+            lower_mat(_, i_adj) = hpa_tmp_lower;
+            upper_mat(_, i_adj) = hpa_tmp_upper;
+            lower_mat(_, i_adj) = Rcpp::qnorm(lower_mat(_, i_adj), 0.0, 1.0);
+            upper_mat(_, i_adj) = Rcpp::qnorm(upper_mat(_, i_adj), 0.0, 1.0);
+            if (grad_sigma)
+            {
+              NumericVector vec_tmp = lower_mat(_, i_adj);
+              q_lower.col(i_adj) = as<arma::vec>(vec_tmp);
+              vec_tmp = upper_mat(_, i_adj);
+              q_upper.col(i_adj) = as<arma::vec>(vec_tmp);
+            }
+          }
+        }
+        // Remove standardization
+        if (given_ind_logical[i])
+        {
+          given_x_mat(_, i_adj) = given_x_mat(_, i_adj) * sigma_sqrt;
+          if (is_grad)
+          {
+            NumericVector den_tmp = Rcpp::dnorm(given_x_mat(_, i_adj), 
+                                                0.0, sigma_sqrt);
+            grad_tmp_given = grad_tmp_given / den_tmp;
+            if (grad_tmp_marginal_given.size() > 0)
+            {
+              grad_tmp_marginal_given = grad_tmp_marginal_given.each_col() / 
+                                        as<arma::vec>(den_tmp);
+              grad_marginal_list_given.at(i_adj) = grad_tmp_marginal_given;
+              grad_marginal_list_given.at(i_adj).replace(arma::datum::nan, 0);
+            }
+            given_d_marginal.col(i_adj) = as<arma::vec>(grad_tmp_given);
+          }
+        }
+        else
+        {
+          lower_mat(_, i_adj) = lower_mat(_, i_adj) * sigma_sqrt;
+          upper_mat(_, i_adj) = upper_mat(_, i_adj) * sigma_sqrt;
+          if (is_grad)
+          {
+            NumericVector den_tmp_lower = Rcpp::dnorm(lower_mat(_, i_adj),
+                                                      0.0, sigma_sqrt);
+            NumericVector den_tmp_upper = Rcpp::dnorm(upper_mat(_, i_adj),
+                                                      0.0, sigma_sqrt);
+            grad_tmp_lower = grad_tmp_lower / den_tmp_lower;
+            grad_tmp_upper = grad_tmp_upper / den_tmp_upper;
+            lower_d_marginal.col(i_adj) = as<arma::vec>(grad_tmp_lower);
+            upper_d_marginal.col(i_adj) = as<arma::vec>(grad_tmp_upper);
+            if (grad_tmp_marginal_lower.size() > 0)
+            {
+              grad_tmp_marginal_lower = grad_tmp_marginal_lower.each_col() / 
+                                        as<arma::vec>(den_tmp_lower);
+              grad_tmp_marginal_upper = grad_tmp_marginal_upper.each_col() / 
+                                        as<arma::vec>(den_tmp_upper);
+              grad_marginal_list_lower.at(i_adj) = grad_tmp_marginal_lower;
+              grad_marginal_list_upper.at(i_adj) = grad_tmp_marginal_upper;
+              grad_marginal_list_lower.at(i_adj).replace(arma::datum::nan, 0);
+              grad_marginal_list_upper.at(i_adj).replace(arma::datum::nan, 0);
+            }
+          }
+        }
+      }
+    }
+    // Substitute some values
+    lower_d_marginal.replace(arma::datum::nan, 0);
+    upper_d_marginal.replace(arma::datum::nan, 0);
+    q_lower.replace(-arma::datum::inf, 0);
+    q_upper.replace(arma::datum::inf, 0);
+    lower_mat0.replace(-arma::datum::inf, 0);
+    upper_mat0.replace(arma::datum::inf, 0);
+  }
 
   // Vector of zero means
   NumericVector mean_zero(n_dim);
@@ -294,16 +632,6 @@ List pmnorm(const NumericVector lower,
   List cond;
   if (n_given > 0)
   {
-    // Adjust for zero mean
-    for (int i = 0; i < n; i++)
-    {
-      for (int j = 0; j < n_given; j++)
-      {
-        int j_g = g_to_ind(j);
-        given_x_mat(i, j) = given_x_mat(i, j) - mean[j_g];
-      }
-    }
-    
     // Get conditional distribution parameters
     List cmnorm_control = List::create(
       Named("diff_mean_by_sigma_dg") = grad_sigma);
@@ -351,7 +679,6 @@ List pmnorm(const NumericVector lower,
   // Prepare vector to store probabilities
   arma::vec prob(n);
   
-  
   //Special routine for univariate case
   if (n_dependent == 1)
   {
@@ -365,7 +692,8 @@ List pmnorm(const NumericVector lower,
   // normal and t probabilities. Statistics and Computing 14, 251–260 (2004). 
   // https://doi.org/10.1023/B:STCO.0000035304.20635.31
   // Formula (3) with 30 Gauss-Legendre points.
-  if (n_dependent == 2)
+  if ((n_dependent == 2) & ((method == "Drezner-Wesolowsky") || 
+                            (method == "default")))
   {
     // Preliminary constants
     const double pi = 3.141592653589793238463;
@@ -387,43 +715,435 @@ List pmnorm(const NumericVector lower,
     arma::vec upr1 = upper_d_arma.col(0) / sigma1;
     arma::vec upr2 = upper_d_arma.col(1) / sigma2;
     
-    // Deal with infinite upper integration limits
-    upr1.replace(arma::datum::inf, 10);
-    upr2.replace(arma::datum::inf, 10);
-    
-    // Preliminary value for vectorization purposes
+    // Preliminary values for vectorization purposes
     arma::vec adj = 1 - pow(x, 2);
-    arma::vec adj1 = 1 / (-2 * adj);
+    arma::vec adj1 = 1 / (2 * adj);
     arma::vec adj2 = w % (rho / (4 * pi * sqrt(adj)));
+    
+    // Calculate probability
+    arma::vec prob0 = (arma::normcdf(upr1) - arma::normcdf(lwr1)) %
+                      (arma::normcdf(upr2) - arma::normcdf(lwr2));
 
-    // Estimate probabilities P(X1 < upper1, X2 < upper2)
-    prob = pmnorm2(upr1, upr2, x, adj, adj1, adj2, n_cores);
-
-    // Additional routine if lower limits are
-    // not negative infinite
-    bool lower1_inf = all(is_infinite(lower_d(_, 0)));
-    bool lower2_inf = all(is_infinite(lower_d(_, 1)));
-
-    if (!lower1_inf)
+    // Estimation of probabilities for each observation
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+    #endif
+    for(int i = 0; i < n; i++)
     {
-      lwr1.replace(-arma::datum::inf, -10);
-      prob = prob - pmnorm2(lwr1, upr2, x, adj, adj1, adj2, n_cores);
+      // Value to aggregate probabilities
+      double p = 0;
+      
+      // Check which elements are infinite
+      bool inf_upr1 = std::isinf(upr1.at(i));
+      bool inf_upr2 = std::isinf(upr2.at(i));
+      bool inf_lwr1 = std::isinf(lwr1.at(i));
+      bool inf_lwr2 = std::isinf(lwr2.at(i));
+      
+      // Phase 1
+      if (!(inf_upr1 | inf_upr2))
+      {
+        double c1 = std::pow(upr1.at(i), 2) + std::pow(upr2.at(i), 2);
+        double c2 = 2 * upr1.at(i) * upr2.at(i);
+        p = sum(adj2 % exp((c2 * x - c1) % adj1));
+      }
+      
+      // Phase 2
+      if (!(inf_lwr1 | inf_upr2))
+      {
+        double c1 = std::pow(lwr1.at(i), 2) + std::pow(upr2.at(i), 2);
+        double c2 = 2 * lwr1.at(i) * upr2.at(i);
+        p = p - sum(adj2 % exp((c2 * x - c1) % adj1));
+      }
+      
+      // Phase 3
+      if (!(inf_upr1 | inf_lwr2))
+      {
+        double c1 = std::pow(upr1.at(i), 2) + std::pow(lwr2.at(i), 2);
+        double c2 = 2 * upr1.at(i) * lwr2.at(i);
+        p = p - sum(adj2 % exp((c2 * x - c1) % adj1));
+      }
+      
+      // Phase 4
+      if (!(inf_lwr1 | inf_lwr2))
+      {
+        double c1 = std::pow(lwr1.at(i), 2) + std::pow(lwr2.at(i), 2);
+        double c2 = 2 * lwr1.at(i) * lwr2.at(i);
+        p = p + sum(adj2 % exp((c2 * x - c1) % adj1));
+      }
+      
+      prob.at(i) = p;
     }
     
-    if (!lower2_inf)
+    // Aggregate the results
+    prob = prob + prob0;
+  }
+  
+  // Special routine for trivariate normal
+  // Genz, A. Numerical computation of rectangular bivariate and trivariate 
+  // normal and t probabilities. Statistics and Computing 14, 251–260 (2004). 
+  // https://doi.org/10.1023/B:STCO.0000035304.20635.31
+  // Formula (14) with 30 Gauss-Legendre points.
+  if ((n_dependent == 3) & ((method == "Drezner") || 
+                            (method == "default")))
+  {
+    // Preliminary constants
+    const double pi = 3.141592653589793238463;
+    
+    // Covariance matrix parameters before permutation
+    arma::vec sigma3 = {sqrt(sigma_cond_arma.at(0, 0)),
+                        sqrt(sigma_cond_arma.at(1, 1)),
+                        sqrt(sigma_cond_arma.at(2, 2))};
+    arma::vec cov3 = {sigma_cond_arma.at(0, 1),
+                      sigma_cond_arma.at(0, 2),
+                      sigma_cond_arma.at(1, 2)};
+    arma::vec cor3 = {cov3.at(0) / (sigma3.at(0) * sigma3.at(1)),
+                      cov3.at(1) / (sigma3.at(0) * sigma3.at(2)),
+                      cov3.at(2) / (sigma3.at(1) * sigma3.at(2))};
+    arma::mat cor3_mat = {{1,          cor3.at(0), cor3.at(1)},
+                          {cor3.at(0), 1,          cor3.at(2)},
+                          {cor3.at(1), cor3.at(2), 1}};
+    
+    // Get optimal permutation
+    arma::vec cor_tmp = {std::max(std::abs(cor3.at(0)), std::abs(cor3.at(1))),
+                         std::max(std::abs(cor3.at(0)), std::abs(cor3.at(2))),
+                         std::max(std::abs(cor3.at(1)), std::abs(cor3.at(2)))};
+    arma::uvec ind_sorted = sort_index(cor_tmp, "ascend");
+    
+    // Assign values accounting for permutations
+    sigma3 = sigma3.elem(ind_sorted);
+    cov3 = cov3.elem(ind_sorted);
+    cor3.at(0) = cor3_mat.at(ind_sorted.at(0), ind_sorted.at(1));
+    cor3.at(1) = cor3_mat.at(ind_sorted.at(0), ind_sorted.at(2));
+    cor3.at(2) = cor3_mat.at(ind_sorted.at(1), ind_sorted.at(2));
+    arma::vec cor3_sqr = arma::pow(cor3, 2);
+    arma::mat lwr = lower_d_arma.cols(ind_sorted);
+    arma::mat upr = upper_d_arma.cols(ind_sorted);
+    for (int i = 0; i <= 2; i++)
     {
-      lwr2.replace(-arma::datum::inf, -10);
-      prob = prob - pmnorm2(lwr2, upr1, x, adj, adj1, adj2, n_cores);
+      lwr.col(i) = lwr.col(i) / sigma3.at(i);
+      upr.col(i) = upr.col(i) / sigma3.at(i);
+    }
+
+    // Calculate first part of the probability
+    NumericMatrix lwr_biv = wrap(lwr.cols(1, 2));
+    NumericMatrix upr_biv = wrap(upr.cols(1, 2));
+    NumericMatrix sigma_biv(2, 2);
+    sigma_biv(0, 0) = 1;
+    sigma_biv(0, 1) = cor3.at(2);
+    sigma_biv(1, 0) = cor3.at(2);
+    sigma_biv(1, 1) = 1;
+    NumericVector mean_biv = NumericVector::create(0, 0);
+    List prob0_list = pmnorm(lwr_biv, upr_biv, 
+                             NumericVector(),
+                             mean_biv, sigma_biv,
+                             NumericVector(), n_sim,
+                             "default", "mean",
+                             false, false, false, false, false, false,
+                             R_NilValue, n_cores);
+    arma::vec prob0 = prob0_list["prob"];
+    prob0 = prob0 % (arma::normcdf(upr.col(0)) - arma::normcdf(lwr.col(0)));
+
+    // Gauss quadrature values accounting for change
+    // of variables from [-1, 1] to [0, 1]
+    int n_gs = 30;
+    arma::mat gs = as<arma::mat>(GaussQuadrature(n_gs));
+    arma::vec x = (gs.col(0) + 1) / 2;
+    arma::vec w = gs.col(1);
+    
+    // Preliminary values for vectorization purposes
+    arma::vec x_sqr = arma::pow(x, 2);
+    arma::vec two_cor12_x = 2 * cor3.at(0) * x;
+    arma::vec two_cor13_x = 2 * cor3.at(1) * x;
+    arma::vec cor12_x_sqr = cor3_sqr.at(0) * x_sqr;
+    arma::vec cor13_x_sqr = cor3_sqr.at(1) * x_sqr;
+    arma::vec one_minus_cor12_x_sqr = 1 - cor12_x_sqr;
+    arma::vec one_minus_cor13_x_sqr = 1 - cor13_x_sqr;
+    arma::vec two_one_minus_cor12_x_sqr = 2 * one_minus_cor12_x_sqr;
+    arma::vec two_one_minus_cor13_x_sqr = 2 * one_minus_cor13_x_sqr;
+    arma::vec two_x_sqr_cor = 2 * cor3.at(0) * cor3.at(1) * cor3.at(2) * x_sqr;
+    arma::vec u_denom_share = one_minus_cor12_x_sqr - cor13_x_sqr - 
+                              cor3_sqr.at(2) + two_x_sqr_cor;
+    arma::vec u2_denom = arma::sqrt(one_minus_cor13_x_sqr % u_denom_share);
+    arma::vec u3_denom = arma::sqrt(one_minus_cor12_x_sqr % u_denom_share);
+    arma::vec u_nom_share = cor3.at(0) * cor3.at(1) * x_sqr - cor3.at(2);
+    arma::vec u2_nom_sp = (cor3.at(1) * cor3.at(2) - cor3.at(0)) * x;
+    arma::vec u3_nom_sp = (cor3.at(0) * cor3.at(2) - cor3.at(1)) * x;
+    // divide by 4 instead of 2 because of change of variable in the quadrature
+    arma::vec w2 = w % ((cor3.at(1) / (4 * pi)) / arma::sqrt(one_minus_cor13_x_sqr));
+    arma::vec w3 = w % ((cor3.at(0) / (4 * pi)) / arma::sqrt(one_minus_cor12_x_sqr));
+    
+    // Some functions of integration limits
+    arma::mat lwr_sqr = arma::pow(lwr, 2);
+    arma::mat upr_sqr = arma::pow(upr, 2);
+    
+    // Start calculations
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
+    #endif
+    for(int i = 0; i < n; i++)
+    {
+      // Initialize values to store probabilities
+      double p2 = 0;
+      double p3 = 0;
+      
+      // Check which elements are infinite
+      bool inf_upr_1 = std::isinf(upr.at(i, 0));
+      bool inf_upr_2 = std::isinf(upr.at(i, 1));
+      bool inf_upr_3 = std::isinf(upr.at(i, 2));
+      bool inf_lwr_1 = std::isinf(lwr.at(i, 0));
+      bool inf_lwr_2 = std::isinf(lwr.at(i, 1));
+      bool inf_lwr_3 = std::isinf(lwr.at(i, 2));
+      
+      //
+      // Phase 1
+      //
+      
+      // First component                          
+      if (!(inf_upr_1 | inf_upr_3))
+      {
+        arma::vec p_u2_upr(n_gs, arma::fill::ones);
+        arma::vec p_u2_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_2)
+        {
+          arma::vec u2_nom = upr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             upr.at(i, 0) * u2_nom_sp +
+                             upr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_upr = arma::normcdf(u2);
+        }
+        if (!inf_lwr_2)
+        {
+          arma::vec u2_nom = lwr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             upr.at(i, 0) * u2_nom_sp +
+                             upr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_lwr = arma::normcdf(u2);
+        }
+        arma::vec p_u2 = p_u2_upr - p_u2_lwr;
+        arma::vec f2 = arma::exp((two_cor13_x * (upr.at(i, 0) * upr.at(i, 2)) - 
+                                  (upr_sqr.at(i, 0) + upr_sqr.at(i, 2))) / 
+                                 two_one_minus_cor13_x_sqr);
+        p2 = sum(w2 % f2 % p_u2);
+      }
+      
+      // Second component
+      if (!(inf_upr_1 | inf_upr_2))
+      {
+        arma::vec p_u3_upr(n_gs, arma::fill::ones);
+        arma::vec p_u3_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_3)
+        {
+          arma::vec u3_nom = upr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             upr.at(i, 0) * u3_nom_sp +
+                             upr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_upr = arma::normcdf(u3);
+        }
+        if (!inf_lwr_3)
+        {
+          arma::vec u3_nom = lwr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             upr.at(i, 0) * u3_nom_sp +
+                             upr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_lwr = arma::normcdf(u3);
+        }
+        arma::vec p_u3 = p_u3_upr - p_u3_lwr;
+        arma::vec f3 = arma::exp((two_cor12_x * (upr.at(i, 0) * upr.at(i, 1)) - 
+                                  (upr_sqr.at(i, 0) + upr_sqr.at(i, 1))) / 
+                                 two_one_minus_cor12_x_sqr);
+        p3 = sum(w3 % f3 % p_u3);
+      }
+      
+      //
+      // Phase 2
+      //
+      
+      // First component                          
+      if (!(inf_lwr_1 | inf_upr_3))
+      {
+        arma::vec p_u2_upr(n_gs, arma::fill::ones);
+        arma::vec p_u2_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_2)
+        {
+          arma::vec u2_nom = upr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             lwr.at(i, 0) * u2_nom_sp +
+                             upr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_upr = arma::normcdf(u2);
+        }
+        if (!inf_lwr_2)
+        {
+          arma::vec u2_nom = lwr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             lwr.at(i, 0) * u2_nom_sp +
+                             upr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_lwr = arma::normcdf(u2);
+        }
+        arma::vec p_u2 = p_u2_upr - p_u2_lwr;
+        arma::vec f2 = arma::exp((two_cor13_x * (lwr.at(i, 0) * upr.at(i, 2)) - 
+                                  (lwr_sqr.at(i, 0) + upr_sqr.at(i, 2))) / 
+                                 two_one_minus_cor13_x_sqr);
+        p2 = p2 - sum(w2 % f2 % p_u2);
+      }
+      
+      // Second component
+      if (!(inf_lwr_1 | inf_upr_2))
+      {
+        arma::vec p_u3_upr(n_gs, arma::fill::ones);
+        arma::vec p_u3_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_3)
+        {
+          arma::vec u3_nom = upr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             lwr.at(i, 0) * u3_nom_sp +
+                             upr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_upr = arma::normcdf(u3);
+        }
+        if (!inf_lwr_3)
+        {
+          arma::vec u3_nom = lwr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             lwr.at(i, 0) * u3_nom_sp +
+                             upr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_lwr = arma::normcdf(u3);
+        }
+        arma::vec p_u3 = p_u3_upr - p_u3_lwr;
+        arma::vec f3 = arma::exp((two_cor12_x * (lwr.at(i, 0) * upr.at(i, 1)) - 
+                                  (lwr_sqr.at(i, 0) + upr_sqr.at(i, 1))) / 
+                                  two_one_minus_cor12_x_sqr);
+        p3 = p3 - sum(w3 % f3 % p_u3);
+      }
+      
+      //
+      // Phase 3
+      //
+      
+      // First component                          
+      if (!(inf_upr_1 | inf_lwr_3))
+      {
+        arma::vec p_u2_upr(n_gs, arma::fill::ones);
+        arma::vec p_u2_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_2)
+        {
+          arma::vec u2_nom = upr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             upr.at(i, 0) * u2_nom_sp +
+                             lwr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_upr = arma::normcdf(u2);
+        }
+        if (!inf_lwr_2)
+        {
+          arma::vec u2_nom = lwr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             upr.at(i, 0) * u2_nom_sp +
+                             lwr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_lwr = arma::normcdf(u2);
+        }
+        arma::vec p_u2 = p_u2_upr - p_u2_lwr;
+        arma::vec f2 = arma::exp((two_cor13_x * (upr.at(i, 0) * lwr.at(i, 2)) - 
+                                  (upr_sqr.at(i, 0) + lwr_sqr.at(i, 2))) / 
+                                  two_one_minus_cor13_x_sqr);
+        p2 = p2 - sum(w2 % f2 % p_u2);
+      }
+      
+      // Second component
+      if (!(inf_upr_1 | inf_lwr_2))
+      {
+        arma::vec p_u3_upr(n_gs, arma::fill::ones);
+        arma::vec p_u3_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_3)
+        {
+          arma::vec u3_nom = upr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             upr.at(i, 0) * u3_nom_sp +
+                             lwr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_upr = arma::normcdf(u3);
+        }
+        if (!inf_lwr_3)
+        {
+          arma::vec u3_nom = lwr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             upr.at(i, 0) * u3_nom_sp +
+                             lwr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_lwr = arma::normcdf(u3);
+        }
+        arma::vec p_u3 = p_u3_upr - p_u3_lwr;
+        arma::vec f3 = arma::exp((two_cor12_x * (upr.at(i, 0) * lwr.at(i, 1)) - 
+                                (upr_sqr.at(i, 0) + lwr_sqr.at(i, 1))) / 
+                                two_one_minus_cor12_x_sqr);
+        p3 = p3 - sum(w3 % f3 % p_u3);
+      }
+      
+      //
+      // Phase 4
+      //
+      
+      // First component                          
+      if (!(inf_lwr_1 | inf_lwr_3))
+      {
+        arma::vec p_u2_upr(n_gs, arma::fill::ones);
+        arma::vec p_u2_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_2)
+        {
+          arma::vec u2_nom = upr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             lwr.at(i, 0) * u2_nom_sp +
+                             lwr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_upr = arma::normcdf(u2);
+        }
+        if (!inf_lwr_2)
+        {
+          arma::vec u2_nom = lwr.at(i, 1) * one_minus_cor13_x_sqr + 
+                             lwr.at(i, 0) * u2_nom_sp +
+                             lwr.at(i, 2) * u_nom_share;
+          arma::vec u2 = u2_nom / u2_denom;
+          p_u2_lwr = arma::normcdf(u2);
+        }
+        arma::vec p_u2 = p_u2_upr - p_u2_lwr;
+        arma::vec f2 = arma::exp((two_cor13_x * (lwr.at(i, 0) * lwr.at(i, 2)) - 
+                                 (lwr_sqr.at(i, 0) + lwr_sqr.at(i, 2))) / 
+                                 two_one_minus_cor13_x_sqr);
+        p2 = p2 + sum(w2 % f2 % p_u2);
+      }
+      
+      // Second component
+      if (!(inf_lwr_1 | inf_lwr_2))
+      {
+        arma::vec p_u3_upr(n_gs, arma::fill::ones);
+        arma::vec p_u3_lwr(n_gs, arma::fill::zeros);
+        if (!inf_upr_3)
+        {
+          arma::vec u3_nom = upr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             lwr.at(i, 0) * u3_nom_sp +
+                             lwr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_upr = arma::normcdf(u3);
+        }
+        if (!inf_lwr_3)
+        {
+          arma::vec u3_nom = lwr.at(i, 2) * one_minus_cor12_x_sqr + 
+                             lwr.at(i, 0) * u3_nom_sp +
+                             lwr.at(i, 1) * u_nom_share;
+          arma::vec u3 = u3_nom / u3_denom;
+          p_u3_lwr = arma::normcdf(u3);
+        }
+        arma::vec p_u3 = p_u3_upr - p_u3_lwr;
+        arma::vec f3 = arma::exp((two_cor12_x * (lwr.at(i, 0) * lwr.at(i, 1)) - 
+                                  (lwr_sqr.at(i, 0) + lwr_sqr.at(i, 1))) / 
+                                  two_one_minus_cor12_x_sqr);
+        p3 = p3 + sum(w3 % f3 % p_u3);
+      }
+      
+      // Aggregate the results
+      prob.at(i) = p2 + p3;
     }
     
-    if ((!lower1_inf) && (!lower2_inf))
-    {
-      prob = prob + pmnorm2(lwr1, lwr2, x, adj, adj1, adj2, n_cores);
-    }
+    // Sum probabilities
+    prob = prob + prob0;
   }
   
   // Special routine for multivariate case (at least 3 dimensions)
-  if (n_dependent > 2)
+  if ((n_dependent > 3) | (method == "GHK"))
   {
     // Generate Halton sequence
     arma::mat h(as<arma::mat>(halton(n_sim, seqPrimes(n_dim), 100,
@@ -463,7 +1183,7 @@ List pmnorm(const NumericVector lower,
     return_list.attr("class") = "mnorm_pmnorm";
     return(return_list);
   }
-  
+
   // Special control variables
   List control_special;
   
@@ -473,12 +1193,17 @@ List pmnorm(const NumericVector lower,
   // Vector of conditional standard deviations
   arma::vec sd_cond_arma = arma::sqrt(arma::diagvec(sigma_cond_arma));
   
-  // Conver matrix of conditioned values to arma
+  // Convert matrix of conditioned values to arma
   arma::mat const given_x_arma(given_x_mat.begin(), n, n_given, false);
   
   // Matrix to store gradient for variances
   arma::mat grad_var(n, n_dim);
-  
+  arma::mat grad_var_marginal;
+  if (is_marginal)
+  {
+    grad_var_marginal = arma::mat(n, n_dim);
+  }
+
   // Variable to control for observations need to calculate
   // appropriate parts of Jacobian
   LogicalVector is_use1;
@@ -486,6 +1211,11 @@ List pmnorm(const NumericVector lower,
 
   // Estimate gradient respect to lower integration limits
   arma::mat grad_lower_arma(n, n_dependent);
+  arma::mat grad_lower_arma0;
+  if (is_marginal)
+  {
+    grad_lower_arma0 = arma::mat(n, n_dependent);
+  }
   List cdf_lower_list;
   for (int i = 0; i < n_dependent; i++)
   {
@@ -530,21 +1260,53 @@ List pmnorm(const NumericVector lower,
       arma::vec cdf_lower = cdf_lower_list["prob"];
       grad_lower_arma.col(i) = pdf_lower % cdf_lower;
     }
+    if (is_marginal)
+    {
+      grad_lower_arma0.col(i) = grad_lower_arma.col(i);
+      if (marginal_names[d_to_ind(i)] != "normal")
+      {
+        grad_lower_arma.col(i) = grad_lower_arma.col(i) % 
+                                 lower_d_marginal.col(i);
+      }
+    }
     // Contribute to variance derivative
     if (grad_sigma)
     {
-      arma::vec lwr_adj_tmp = -lower_d_arma.col(i) /
-                               (2 * sigma_cond_arma.at(i, i));
-      lwr_adj_tmp.replace(arma::datum::inf, 0);
       int i_d = d_to_ind.at(i);
-      grad_var.col(i_d) = grad_var.col(i_d) + 
-                          grad_lower_arma.col(i) % 
-                          lwr_adj_tmp;
+      arma::vec lwr_adj_tmp;
+      lwr_adj_tmp = -lower_d_arma.col(i) / (2 * sigma_cond_arma.at(i, i));
+      lwr_adj_tmp.replace(arma::datum::inf, 0);
+      if (is_marginal)
+      {
+        grad_var.col(i_d) = grad_var.col(i_d) + 
+                            grad_lower_arma0.col(i) % lwr_adj_tmp;
+        if (marginal_names[d_to_ind(i)] != "normal")
+        {
+          arma::vec grad_var_marginal_tmp = 
+            (grad_lower_arma0.col(i) % q_lower.col(i)) / 
+            (2 * sqrt(sigma(i_d, i_d))) -
+            (grad_lower_arma.col(i) % lower_mat0.col(i)) / 
+            (2 * sigma(i_d, i_d));
+          grad_var_marginal.col(i_d) = grad_var_marginal.col(i_d) +
+                                       grad_var_marginal_tmp;
+          grad_var.col(i_d) = grad_var.col(i_d) + grad_var_marginal_tmp;
+        }
+      }
+      else
+      {
+        grad_var.col(i_d) = grad_var.col(i_d) + 
+                            grad_lower_arma.col(i) % lwr_adj_tmp;
+      }
     }
   }
 
   // Estimate gradient respect to upper integration limits
   arma::mat grad_upper_arma(n, n_dependent);
+  arma::mat grad_upper_arma0;
+  if (is_marginal)
+  {
+    grad_upper_arma0 = arma::mat(n, n_dependent);
+  }
   List cdf_upper_list;
   for (int i = 0; i < n_dependent; i++)
   {
@@ -589,24 +1351,126 @@ List pmnorm(const NumericVector lower,
       arma::vec cdf_upper = cdf_upper_list["prob"];
       grad_upper_arma.col(i) = pdf_upper % cdf_upper;
     }
+    if (is_marginal)
+    {
+      grad_upper_arma0.col(i) = grad_upper_arma.col(i);
+      if (marginal_names[d_to_ind(i)] != "normal")
+      {
+        grad_upper_arma.col(i) = grad_upper_arma.col(i) % 
+                                 upper_d_marginal.col(i);
+      }
+    }
     // Contribute to variance derivative
     if (grad_sigma)
     {
-      arma::vec upr_adj_tmp = -upper_d_arma.col(i) / 
-                              (2 * sigma_cond_arma.at(i, i));
-      upr_adj_tmp.replace(-arma::datum::inf, 0);
       int i_d = d_to_ind.at(i);
-      grad_var.col(i_d) = grad_var.col(i_d) + 
-                          grad_upper_arma.col(i) % 
-                          upr_adj_tmp;
+      arma::vec upr_adj_tmp;
+      upr_adj_tmp = -upper_d_arma.col(i) / (2 * sigma_cond_arma.at(i, i));
+      upr_adj_tmp.replace(-arma::datum::inf, 0);
+      if (is_marginal)
+      {
+        grad_var.col(i_d) = grad_var.col(i_d) + 
+                            grad_upper_arma0.col(i) % upr_adj_tmp;
+        if (marginal_names[d_to_ind(i)] != "normal")
+        {
+          arma::vec grad_var_marginal_tmp = 
+            (grad_upper_arma0.col(i) % q_upper.col(i)) / 
+            (2 * sqrt(sigma(i_d, i_d))) -
+            (grad_upper_arma.col(i) % upper_mat0.col(i)) / 
+            (2 * sigma(i_d, i_d));
+          grad_var_marginal.col(i_d) = grad_var_marginal.col(i_d) +
+                                       grad_var_marginal_tmp;
+          grad_var.col(i_d) = grad_var.col(i_d) + grad_var_marginal_tmp;
+        }
+      }
+      else
+      {
+        grad_var.col(i_d) = grad_var.col(i_d) + 
+                            grad_upper_arma.col(i) % upr_adj_tmp;
+      }
     }
   }
 
   // Estimate the gradient respect to conditional values
   arma::mat grad_given_arma;
-  if (grad_given)
+  arma::mat grad_given_arma0;
+  arma::mat grad_sum;
+  if ((grad_given || grad_sigma || grad_marginal) & (n_given > 0))
   {
-    grad_given_arma = (grad_lower_arma + grad_upper_arma) * (-s12s22);
+    if (is_marginal)
+    {
+      grad_sum = grad_upper_arma0 + grad_lower_arma0;
+      grad_given_arma = grad_sum * (-s12s22);
+      if (grad_marginal)
+      {
+        grad_given_arma0 = grad_given_arma;
+      }
+      for (int i = 0; i < n_given; i++)
+      {
+        if (marginal_names[g_to_ind(i)] != "normal")
+        {
+          grad_given_arma.col(i) = grad_given_arma.col(i) % 
+                                   given_d_marginal.col(i);
+        }
+      }
+    }
+    else
+    {
+      grad_sum = grad_lower_arma + grad_upper_arma;
+      grad_given_arma = grad_sum * (-s12s22);
+    }
+  }
+
+  // Estimate additional components for variance
+  // of conditional distribution when marginal
+  // distributions are not normal
+  arma::mat grad_var_marginal_d;
+  if (is_marginal & grad_sigma)
+  {
+    for (int i = 0; i < n_given; i++)
+    {
+      int i_g = g_to_ind.at(i);
+      if (marginal_names[i_g] != "normal")
+      {
+        grad_var_marginal.col(i_g) = q_given.col(i) / 
+                                     (2 * sqrt(sigma(i_g, i_g))) -
+                                     (given_d_marginal.col(i) % 
+                                      given_x_mat0.col(i)) / 
+                                     (2 * sigma(i_g, i_g));
+      }
+    }
+  }
+
+  // Estimate gradient respect to marginal distribution parameters
+  arma::field<arma::mat> grad_marginal_arma;
+  if (is_marginal & grad_marginal)
+  {
+    grad_marginal_arma = arma::field<arma::mat>(n_dim);
+    for (int i = 0; i < n_dim; i++)
+    {
+      int i_adj;
+      grad_marginal_arma.at(i) = arma::mat(n, n_marginal_par[i]);
+      if ((marginal_names[i] == "PGN") || (marginal_names[i] == "hpa"))
+      {
+        if (given_ind_logical[i])
+        {
+          i_adj = ind_to_g[i];
+          grad_marginal_arma.at(i) = grad_marginal_arma.at(i) +
+                                     grad_marginal_list_given.at(i_adj).each_col() %
+                                     grad_given_arma0.col(i_adj);
+        }
+        else
+        {
+          i_adj = ind_to_d[i];
+          grad_marginal_arma.at(i) = grad_marginal_arma.at(i) +
+                                     grad_marginal_list_lower.at(i_adj).each_col() %
+                                     grad_lower_arma0.col(i_adj);
+          grad_marginal_arma.at(i) = grad_marginal_arma.at(i) +
+                                     grad_marginal_list_upper.at(i_adj).each_col() %
+                                     grad_upper_arma0.col(i_adj);
+        }
+      }
+    }
   }
 
   // Estimate gradient respect to covariance matrix elements
@@ -824,8 +1688,13 @@ List pmnorm(const NumericVector lower,
       int i_d = d_to_ind.at(i);
       grad_sigma_arma.tube(i_d, i_d) = grad_var.col(i_d);
     }
-    
+
     // Gradient respect to sigma_dg and sigma_gg
+    arma::mat grad_var0;
+    if (is_marginal)
+    {
+      grad_var0 = grad_var - grad_var_marginal;
+    }
     if (n_given > 0)
     {
       diff_mean_by_sigma = -diff_mean_by_sigma;
@@ -837,24 +1706,56 @@ List pmnorm(const NumericVector lower,
           int i_d = d_to_ind(i);
           int j_g = g_to_ind(j);
           // part associated with conditional mean
-          grad_sigma_arma.tube(i_d, j_g) = (grad_upper_arma.col(i) +  
-                                            grad_lower_arma.col(i)) % 
-                                            diff_mean_by_sigma.col(j);
+          if (is_marginal)
+          {
+            grad_sigma_arma.tube(i_d, j_g) = (grad_upper_arma0.col(i) +  
+                                              grad_lower_arma0.col(i)) % 
+                                              diff_mean_by_sigma.col(j);
+          }
+          else
+          {
+            grad_sigma_arma.tube(i_d, j_g) = (grad_upper_arma.col(i) +  
+                                              grad_lower_arma.col(i)) % 
+                                              diff_mean_by_sigma.col(j);
+          }
             for (int j1 = 0; j1 < n_dependent; j1++)
             {
               // part associated with conditional covariance
-              grad_sigma_arma.tube(i_d, j_g) =
-                grad_sigma_arma.tube(i_d, j_g) -
-                (1 + (i == j1)) * s12s22.at(j1, j) *
-                grad_sigma_arma.tube(i_d, d_to_ind.at(j1));
+              if (is_marginal)
+              {
+                if (i == j1)
+                {
+                  arma::vec grad_sigma_ij = grad_sigma_arma.tube(i_d, j_g);
+                  grad_sigma_arma.tube(i_d, j_g) = 
+                    grad_sigma_ij - (2 * s12s22.at(j1, j)) * grad_var0.col(i_d);
+                }
+                else
+                {
+                  grad_sigma_arma.tube(i_d, j_g) =
+                    grad_sigma_arma.tube(i_d, j_g) -
+                    s12s22.at(j1, j) * 
+                    grad_sigma_arma.tube(i_d, d_to_ind.at(j1));
+                }
+              }
+              else
+              {
+                grad_sigma_arma.tube(i_d, j_g) =
+                  grad_sigma_arma.tube(i_d, j_g) -
+                  ((1 + (i == j1)) * s12s22.at(j1, j)) *
+                  grad_sigma_arma.tube(i_d, d_to_ind.at(j1));
+              }
             }
             grad_sigma_arma.tube(j_g, i_d) = grad_sigma_arma.tube(i_d, j_g);
         }
       }
-      diff_mean_by_sigma = -diff_mean_by_sigma;
       // respect to sigma_g elements
+      diff_mean_by_sigma = -diff_mean_by_sigma;
       arma::mat sigma_dg = cond["sigma_dg"];
       arma::mat sigma_g_inv = cond["sigma_g_inv"];
+      if (is_marginal)
+      {
+        grad_var_marginal_d = arma::mat(n, n_dependent);
+      }
       for (int i = 0; i < n_given; i++)
       {
         for (int j = i; j < n_given; j++)
@@ -867,15 +1768,33 @@ List pmnorm(const NumericVector lower,
           arma::mat mat_tmp2 = given_x_arma * 
                                (sigma_dg * sigma_g_inv * I_g * sigma_g_inv).t();
           // part associated with conditional mean
-          arma::mat mat_tmp3 = sum(mat_tmp2 % (grad_upper_arma + 
-                                               grad_lower_arma), 1);
+          arma::mat mat_tmp3 = sum(mat_tmp2 % grad_sum, 1);
+          if (is_marginal)
+          {
+            if ((i == j) & (marginal_names[g_to_ind(i)] != "normal"))
+            {
+              for (int t = 0; t < n_dependent; t++)
+              {
+                mat_tmp3 = mat_tmp3 - (grad_var_marginal.col(g_to_ind(i)) %
+                                       grad_sum.col(t)) * s12s22.at(t, i);
+              }
+            }
+          }
           for (int i1 = 0; i1 < n_dependent; i1++)
           {
             for (int j1 = i1; j1 < n_dependent; j1++)
             {
               // part associated with conditional covariance
-              arma::colvec mat_tmp4 = grad_sigma_arma.tube(d_to_ind[i1], 
-                                                           d_to_ind[j1]);
+              arma::colvec mat_tmp4;
+              if (is_marginal & (i1 == j1))
+              {
+                mat_tmp4 = grad_var0.col(d_to_ind[i1]);
+              }
+              else
+              {
+                mat_tmp4 = grad_sigma_arma.tube(d_to_ind[i1], 
+                                                d_to_ind[j1]);
+              }
               mat_tmp3 = mat_tmp3 + mat_tmp.at(i1, j1) * mat_tmp4;
             }
           }
@@ -925,6 +1844,26 @@ List pmnorm(const NumericVector lower,
         }
       }
     }
+    // for marginal
+    if (grad_marginal & is_marginal)
+    {
+      for (int i = 0; i < n_dim; i++)
+      {
+        if (n_marginal_par[i] > 0)
+        {
+          grad_marginal_arma.at(i) = grad_marginal_arma.at(i).each_col() / prob;
+        }
+      }
+      if (grad_marginal_prob)
+      {
+        grad_upper_arma0 = grad_upper_arma0.each_col() / prob;
+        grad_lower_arma0 = grad_lower_arma0.each_col() / prob;
+        if (n_given > 0)
+        {
+          grad_given_arma0 = grad_given_arma0.each_col() / prob;
+        }
+      }
+    }
   }
   // Store the gradients
   if (grad_upper)
@@ -943,52 +1882,19 @@ List pmnorm(const NumericVector lower,
   {
     return_list["grad_sigma"] = grad_sigma_arma;
   }
-  
+  if (grad_marginal)
+  {
+    if (grad_marginal_prob)
+    {
+      return_list["grad_upper_marginal"] = grad_upper_arma0;
+      return_list["grad_lower_marginal"] = grad_lower_arma0;
+      return_list["grad_given_marginal"] = grad_given_arma0;
+    }
+    return_list["grad_marginal"] = grad_marginal_arma;
+  }
   // Return the results
   return_list.attr("class") = "mnorm_pmnorm";
   return(return_list);
-}
-
-// [[Rcpp::export(rng = false)]]
-arma::vec pmnorm2(const arma::vec x1,
-                  const arma::vec x2,
-                  const arma::vec x,
-                  const arma::vec adj,
-                  const arma::vec adj1,
-                  const arma::vec adj2,
-                  const int n_cores = 1)
-{
-  // Multiple cores
-  #ifdef _OPENMP
-  omp_set_num_threads(n_cores);
-  #endif
-  
-  // Get number of probabilities to calculate
-  int n = x1.size();
-  
-  // Create vector to store the results
-  arma::vec prob(n);
-  
-  // Some preliminary values
-  const arma::vec x1_prob = arma::normcdf(x1);
-  const arma::vec x2_prob = arma::normcdf(x2);
-  const arma::vec x1_pow = pow(x1, 2.0);
-  const arma::vec x2_pow = pow(x2, 2.0);
-  const arma::vec x1x2_prob = x1_prob % x2_prob;
-  const arma::vec x1x2_sum = x1_pow + x2_pow;
-  const arma::vec x1x2_prod = 2 * x1 % x2;
-  
-  // Estimation of probabilities for each observation
-  #ifdef _OPENMP
-  #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
-  #endif
-  for(int i = 0; i < n; i++)
-  {
-    prob.at(i) = x1x2_prob.at(i) +
-    sum(adj2 % exp((x1x2_sum.at(i) - x1x2_prod.at(i) * x) % adj1));
-  }
-  
-  return(prob);
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -1057,7 +1963,7 @@ double GHK(const NumericVector lower,
     arma::colvec tr_exp = arma::colvec(n_dim - 2);
     arma::vec tr_exp_tmp;
     
-    // Integer to store minimum value for each iteration
+    // Integers to store minimum value for each iteration
     int min_ind_adj;
     int min_ind;
     
@@ -1166,7 +2072,7 @@ double GHK(const NumericVector lower,
       vec_tmp = a + h.submat(0, i, n_sim - 1, i) % ab_diff;
       z_tr.col(i) = qnormFast(vec_tmp, 0, 1, "Voutier", false, n_cores);
       //NumericVector vec_tmp1 = wrap(vec_tmp);
-      //vec_tmp1 = Rcpp::qnorm(vec_tmp1, 0.0, 1.0);
+      //vec_tmp1 = Rcpp::Rcpp::qnorm(vec_tmp1, 0.0, 1.0);
       //z_tr.col(i) = as<arma::vec>(vec_tmp1);
     }
   }

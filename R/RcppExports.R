@@ -112,6 +112,9 @@ seqPrimes <- function(n) {
 #' @template param_is_validation_Template
 #' @template param_control_Template
 #' @template param_n_cores_Template
+#' @template param_marginal_Template
+#' @template param_grad_marginal_Template
+#' @template param_grad_marginal_prob_Template
 #' @template return_pmnorm_Template
 #' @template example_pmnorm_Template
 #' @references Genz, A. (2004), Numerical computation of rectangular bivariate 
@@ -120,16 +123,12 @@ seqPrimes <- function(n) {
 #' @references Genz, A. and Bretz, F. (2009), Computation of Multivariate 
 #' Normal and t Probabilities. Lecture Notes in Statistics, Vol. 195. 
 #' Springer-Verlag, Heidelberg.
-#' @references E. Kossova., B. Potanin (2018). 
+#' @references E. Kossova, B. Potanin (2018). 
 #' Heckman method and switching regression model multivariate generalization.
 #' Applied Econometrics, vol. 50, pages 114-143.
 #' @export
-pmnorm <- function(lower, upper, given_x = numeric(), mean = numeric(), sigma = matrix(), given_ind = numeric(), n_sim = 1000L, method = "default", ordering = "mean", log = FALSE, grad_lower = FALSE, grad_upper = FALSE, grad_sigma = FALSE, grad_given = FALSE, is_validation = TRUE, control = NULL, n_cores = 1L) {
-    .Call(`_mnorm_pmnorm`, lower, upper, given_x, mean, sigma, given_ind, n_sim, method, ordering, log, grad_lower, grad_upper, grad_sigma, grad_given, is_validation, control, n_cores)
-}
-
-pmnorm2 <- function(x1, x2, x, adj, adj1, adj2, n_cores = 1L) {
-    .Call(`_mnorm_pmnorm2`, x1, x2, x, adj, adj1, adj2, n_cores)
+pmnorm <- function(lower, upper, given_x = numeric(), mean = numeric(), sigma = matrix(), given_ind = numeric(), n_sim = 1000L, method = "default", ordering = "mean", log = FALSE, grad_lower = FALSE, grad_upper = FALSE, grad_sigma = FALSE, grad_given = FALSE, is_validation = TRUE, control = NULL, n_cores = 1L, marginal = NULL, grad_marginal = FALSE, grad_marginal_prob = FALSE) {
+    .Call(`_mnorm_pmnorm`, lower, upper, given_x, mean, sigma, given_ind, n_sim, method, ordering, log, grad_lower, grad_upper, grad_sigma, grad_given, is_validation, control, n_cores, marginal, grad_marginal, grad_marginal_prob)
 }
 
 GHK <- function(lower, upper, sigma, h, ordering = "default", n_sim = 1000L, n_cores = 1L) {
@@ -163,6 +162,35 @@ GHK <- function(lower, upper, sigma, h, ordering = "default", n_sim = 1000L, n_c
 #' @examples qnormFast(c(0.1, 0.9), mean = 1, sd = 2)
 qnormFast <- function(p, mean = 0L, sd = 1L, method = "Voutier", is_validation = TRUE, n_cores = 1L) {
     .Call(`_mnorm_qnormFast`, p, mean, sd, method, is_validation, n_cores)
+}
+
+#' Random number generator for (conditional) multivariate normal distribution
+#' @description This function generates random numbers (i.e. variates) from 
+#' (conditional) multivariate normal distribution.
+#' @param n positive integer representing the number of random variates
+#' to be generated from (conditional) multivariate normal distribution.
+#' If \code{given_ind} is not empty vector then \code{n} should be
+#' be equal to \code{nrow(given_x)}.
+#' @template param_mean_Template
+#' @template param_sigma_Template
+#' @template param_given_ind_Template
+#' @template param_given_x_Template
+#' @template param_dependent_ind_Template
+#' @template param_is_validation_Template
+#' @template param_n_cores_Template
+#' @details This function uses Cholesky decomposition to generate multivariate
+#' normal variates from independent standard normal variates.
+#' @template example_rmnorm_Template
+#' @return This function returns a numeric matrix which rows a random variates
+#' from (conditional) multivariate normal distribution with mean equal to
+#' \code{mean} and covariance equal to \code{sigma}. If \code{given_x} and 
+#' \code{given_ind} are also provided then random variates will be from
+#' conditional multivariate normal distribution. Please, see details section
+#' of \code{\link[mnorm]{cmnorm}} to get additional information on the 
+#' conditioning procedure.
+#' @export
+rmnorm <- function(n, mean, sigma, given_ind = numeric(), given_x = numeric(), dependent_ind = numeric(), is_validation = TRUE, n_cores = 1L) {
+    .Call(`_mnorm_rmnorm`, n, mean, sigma, given_ind, given_x, dependent_ind, is_validation, n_cores)
 }
 
 # Register entry points for exported C++ functions

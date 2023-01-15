@@ -205,8 +205,8 @@ RcppExport SEXP _mnorm_seqPrimes(SEXP nSEXP) {
     return rcpp_result_gen;
 }
 // pmnorm
-List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const int n_sim, const String method, const String ordering, const bool log, const bool grad_lower, const bool grad_upper, const bool grad_sigma, const bool grad_given, const bool is_validation, Nullable<List> control, const int n_cores);
-static SEXP _mnorm_pmnorm_try(SEXP lowerSEXP, SEXP upperSEXP, SEXP given_xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP n_simSEXP, SEXP methodSEXP, SEXP orderingSEXP, SEXP logSEXP, SEXP grad_lowerSEXP, SEXP grad_upperSEXP, SEXP grad_sigmaSEXP, SEXP grad_givenSEXP, SEXP is_validationSEXP, SEXP controlSEXP, SEXP n_coresSEXP) {
+List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const int n_sim, const String method, const String ordering, const bool log, const bool grad_lower, const bool grad_upper, const bool grad_sigma, const bool grad_given, const bool is_validation, Nullable<List> control, const int n_cores, Nullable<List> marginal, const bool grad_marginal, const bool grad_marginal_prob);
+static SEXP _mnorm_pmnorm_try(SEXP lowerSEXP, SEXP upperSEXP, SEXP given_xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP n_simSEXP, SEXP methodSEXP, SEXP orderingSEXP, SEXP logSEXP, SEXP grad_lowerSEXP, SEXP grad_upperSEXP, SEXP grad_sigmaSEXP, SEXP grad_givenSEXP, SEXP is_validationSEXP, SEXP controlSEXP, SEXP n_coresSEXP, SEXP marginalSEXP, SEXP grad_marginalSEXP, SEXP grad_marginal_probSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< const NumericVector >::type lower(lowerSEXP);
@@ -226,53 +226,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool >::type is_validation(is_validationSEXP);
     Rcpp::traits::input_parameter< Nullable<List> >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(pmnorm(lower, upper, given_x, mean, sigma, given_ind, n_sim, method, ordering, log, grad_lower, grad_upper, grad_sigma, grad_given, is_validation, control, n_cores));
+    Rcpp::traits::input_parameter< Nullable<List> >::type marginal(marginalSEXP);
+    Rcpp::traits::input_parameter< const bool >::type grad_marginal(grad_marginalSEXP);
+    Rcpp::traits::input_parameter< const bool >::type grad_marginal_prob(grad_marginal_probSEXP);
+    rcpp_result_gen = Rcpp::wrap(pmnorm(lower, upper, given_x, mean, sigma, given_ind, n_sim, method, ordering, log, grad_lower, grad_upper, grad_sigma, grad_given, is_validation, control, n_cores, marginal, grad_marginal, grad_marginal_prob));
     return rcpp_result_gen;
 END_RCPP_RETURN_ERROR
 }
-RcppExport SEXP _mnorm_pmnorm(SEXP lowerSEXP, SEXP upperSEXP, SEXP given_xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP n_simSEXP, SEXP methodSEXP, SEXP orderingSEXP, SEXP logSEXP, SEXP grad_lowerSEXP, SEXP grad_upperSEXP, SEXP grad_sigmaSEXP, SEXP grad_givenSEXP, SEXP is_validationSEXP, SEXP controlSEXP, SEXP n_coresSEXP) {
+RcppExport SEXP _mnorm_pmnorm(SEXP lowerSEXP, SEXP upperSEXP, SEXP given_xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP n_simSEXP, SEXP methodSEXP, SEXP orderingSEXP, SEXP logSEXP, SEXP grad_lowerSEXP, SEXP grad_upperSEXP, SEXP grad_sigmaSEXP, SEXP grad_givenSEXP, SEXP is_validationSEXP, SEXP controlSEXP, SEXP n_coresSEXP, SEXP marginalSEXP, SEXP grad_marginalSEXP, SEXP grad_marginal_probSEXP) {
     SEXP rcpp_result_gen;
     {
-        rcpp_result_gen = PROTECT(_mnorm_pmnorm_try(lowerSEXP, upperSEXP, given_xSEXP, meanSEXP, sigmaSEXP, given_indSEXP, n_simSEXP, methodSEXP, orderingSEXP, logSEXP, grad_lowerSEXP, grad_upperSEXP, grad_sigmaSEXP, grad_givenSEXP, is_validationSEXP, controlSEXP, n_coresSEXP));
-    }
-    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
-    if (rcpp_isInterrupt_gen) {
-        UNPROTECT(1);
-        Rf_onintr();
-    }
-    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
-    if (rcpp_isLongjump_gen) {
-        Rcpp::internal::resumeJump(rcpp_result_gen);
-    }
-    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
-    if (rcpp_isError_gen) {
-        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
-        UNPROTECT(1);
-        Rf_error(CHAR(rcpp_msgSEXP_gen));
-    }
-    UNPROTECT(1);
-    return rcpp_result_gen;
-}
-// pmnorm2
-arma::vec pmnorm2(const arma::vec x1, const arma::vec x2, const arma::vec x, const arma::vec adj, const arma::vec adj1, const arma::vec adj2, const int n_cores);
-static SEXP _mnorm_pmnorm2_try(SEXP x1SEXP, SEXP x2SEXP, SEXP xSEXP, SEXP adjSEXP, SEXP adj1SEXP, SEXP adj2SEXP, SEXP n_coresSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< const arma::vec >::type x1(x1SEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type x2(x2SEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type adj(adjSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type adj1(adj1SEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type adj2(adj2SEXP);
-    Rcpp::traits::input_parameter< const int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(pmnorm2(x1, x2, x, adj, adj1, adj2, n_cores));
-    return rcpp_result_gen;
-END_RCPP_RETURN_ERROR
-}
-RcppExport SEXP _mnorm_pmnorm2(SEXP x1SEXP, SEXP x2SEXP, SEXP xSEXP, SEXP adjSEXP, SEXP adj1SEXP, SEXP adj2SEXP, SEXP n_coresSEXP) {
-    SEXP rcpp_result_gen;
-    {
-        rcpp_result_gen = PROTECT(_mnorm_pmnorm2_try(x1SEXP, x2SEXP, xSEXP, adjSEXP, adj1SEXP, adj2SEXP, n_coresSEXP));
+        rcpp_result_gen = PROTECT(_mnorm_pmnorm_try(lowerSEXP, upperSEXP, given_xSEXP, meanSEXP, sigmaSEXP, given_indSEXP, n_simSEXP, methodSEXP, orderingSEXP, logSEXP, grad_lowerSEXP, grad_upperSEXP, grad_sigmaSEXP, grad_givenSEXP, is_validationSEXP, controlSEXP, n_coresSEXP, marginalSEXP, grad_marginalSEXP, grad_marginal_probSEXP));
     }
     Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
     if (rcpp_isInterrupt_gen) {
@@ -369,6 +333,47 @@ RcppExport SEXP _mnorm_qnormFast(SEXP pSEXP, SEXP meanSEXP, SEXP sdSEXP, SEXP me
     UNPROTECT(1);
     return rcpp_result_gen;
 }
+// rmnorm
+NumericMatrix rmnorm(const int n, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const NumericVector given_x, const NumericVector dependent_ind, const bool is_validation, const int n_cores);
+static SEXP _mnorm_rmnorm_try(SEXP nSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP given_xSEXP, SEXP dependent_indSEXP, SEXP is_validationSEXP, SEXP n_coresSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type given_ind(given_indSEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type given_x(given_xSEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type dependent_ind(dependent_indSEXP);
+    Rcpp::traits::input_parameter< const bool >::type is_validation(is_validationSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_cores(n_coresSEXP);
+    rcpp_result_gen = Rcpp::wrap(rmnorm(n, mean, sigma, given_ind, given_x, dependent_ind, is_validation, n_cores));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _mnorm_rmnorm(SEXP nSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP given_xSEXP, SEXP dependent_indSEXP, SEXP is_validationSEXP, SEXP n_coresSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        Rcpp::RNGScope rcpp_rngScope_gen;
+        rcpp_result_gen = PROTECT(_mnorm_rmnorm_try(nSEXP, meanSEXP, sigmaSEXP, given_indSEXP, given_xSEXP, dependent_indSEXP, is_validationSEXP, n_coresSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
 
 // validate (ensure exported C++ functions exist before calling them)
 static int _mnorm_RcppExport_validate(const char* sig) { 
@@ -379,10 +384,10 @@ static int _mnorm_RcppExport_validate(const char* sig) {
         signatures.insert("NumericMatrix(*halton)(const int,const IntegerVector,const int,const String,const String,const bool,const int)");
         signatures.insert("double(*haltonSingleDraw)(int,int)");
         signatures.insert("IntegerVector(*seqPrimes)(const int)");
-        signatures.insert("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,Nullable<List>,const int)");
-        signatures.insert("arma::vec(*pmnorm2)(const arma::vec,const arma::vec,const arma::vec,const arma::vec,const arma::vec,const arma::vec,const int)");
+        signatures.insert("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,Nullable<List>,const int,Nullable<List>,const bool,const bool)");
         signatures.insert("double(*GHK)(const NumericVector,const NumericVector,const NumericMatrix,const arma::mat,const String,const int,const int)");
         signatures.insert("arma::vec(*qnormFast)(arma::vec const&,const int,const int,String,bool,const int)");
+        signatures.insert("NumericMatrix(*rmnorm)(const int,const NumericVector,const NumericMatrix,const NumericVector,const NumericVector,const NumericVector,const bool,const int)");
     }
     return signatures.find(sig) != signatures.end();
 }
@@ -395,9 +400,9 @@ RcppExport SEXP _mnorm_RcppExport_registerCCallable() {
     R_RegisterCCallable("mnorm", "_mnorm_haltonSingleDraw", (DL_FUNC)_mnorm_haltonSingleDraw_try);
     R_RegisterCCallable("mnorm", "_mnorm_seqPrimes", (DL_FUNC)_mnorm_seqPrimes_try);
     R_RegisterCCallable("mnorm", "_mnorm_pmnorm", (DL_FUNC)_mnorm_pmnorm_try);
-    R_RegisterCCallable("mnorm", "_mnorm_pmnorm2", (DL_FUNC)_mnorm_pmnorm2_try);
     R_RegisterCCallable("mnorm", "_mnorm_GHK", (DL_FUNC)_mnorm_GHK_try);
     R_RegisterCCallable("mnorm", "_mnorm_qnormFast", (DL_FUNC)_mnorm_qnormFast_try);
+    R_RegisterCCallable("mnorm", "_mnorm_rmnorm", (DL_FUNC)_mnorm_rmnorm_try);
     R_RegisterCCallable("mnorm", "_mnorm_RcppExport_validate", (DL_FUNC)_mnorm_RcppExport_validate);
     return R_NilValue;
 }
@@ -408,10 +413,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mnorm_halton", (DL_FUNC) &_mnorm_halton, 7},
     {"_mnorm_haltonSingleDraw", (DL_FUNC) &_mnorm_haltonSingleDraw, 2},
     {"_mnorm_seqPrimes", (DL_FUNC) &_mnorm_seqPrimes, 1},
-    {"_mnorm_pmnorm", (DL_FUNC) &_mnorm_pmnorm, 17},
-    {"_mnorm_pmnorm2", (DL_FUNC) &_mnorm_pmnorm2, 7},
+    {"_mnorm_pmnorm", (DL_FUNC) &_mnorm_pmnorm, 20},
     {"_mnorm_GHK", (DL_FUNC) &_mnorm_GHK, 7},
     {"_mnorm_qnormFast", (DL_FUNC) &_mnorm_qnormFast, 6},
+    {"_mnorm_rmnorm", (DL_FUNC) &_mnorm_rmnorm, 8},
     {"_mnorm_RcppExport_registerCCallable", (DL_FUNC) &_mnorm_RcppExport_registerCCallable, 0},
     {NULL, NULL, 0}
 };

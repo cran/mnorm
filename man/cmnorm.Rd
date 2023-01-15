@@ -108,8 +108,8 @@ In general case:
 \deqn{\mu_{c} = E\left(X_{I_{d}} | X_{I_{g}} = x^{(g)}\right) = 
                 \mu_{I_{d}} + 
                 \left(x^{(g)} - \mu_{I_{g}}\right)
-                \Sigma_{(I_{g}, I_{d})}
-                \Sigma_{(I_{g}, I_{g})}^{-1}}
+                \left(\Sigma_{(I_{d}, I_{g})}
+                      \Sigma_{(I_{g}, I_{g})}^{-1}\right)^{T}}
 \deqn{\Sigma_{c} = Cov\left(X_{I_{d}} | X_{I_{g}} = x^{(g)}\right) = 
                    \Sigma_{(I_{d}, I_{d})} - 
                    \Sigma_{(I_{d}, I_{g})}
