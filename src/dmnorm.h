@@ -14,7 +14,7 @@ List dmnorm(const NumericVector x,
             const bool grad_x,
             const bool grad_sigma,
             const bool is_validation,
-            Nullable<List> control,
+            const Nullable<List> control,
             const int n_cores);
 
 #endif

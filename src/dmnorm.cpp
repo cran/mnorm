@@ -1,3 +1,4 @@
+#define ARMA_DONT_USE_OPENMP
 #include <RcppArmadillo.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -45,7 +46,7 @@ List dmnorm(const NumericVector x,
             const bool grad_x = false,
             const bool grad_sigma = false,
             const bool is_validation = true,
-            Nullable<List> control = R_NilValue,
+            const Nullable<List> control = R_NilValue,
             const int n_cores = 1)
 {
   // Create output list
@@ -179,11 +180,14 @@ List dmnorm(const NumericVector x,
   }
   
   // Adjust for zero mean
-  for (int i = 0; i < n; i++)
+  if (mean.size() != 0)
   {
-    for (int j = 0; j < n_dim; j++)
+    for (int i = 0; i < n; i++)
     {
-      x_mat(i, j) = x_mat(i, j) - mean[j];
+      for (int j = 0; j < n_dim; j++)
+      {
+        x_mat(i, j) = x_mat(i, j) - mean[j];
+      }
     }
   }
   

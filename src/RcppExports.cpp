@@ -56,7 +56,7 @@ RcppExport SEXP _mnorm_cmnorm(SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP,
     return rcpp_result_gen;
 }
 // dmnorm
-List dmnorm(const NumericVector x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const bool log, const bool grad_x, const bool grad_sigma, const bool is_validation, Nullable<List> control, const int n_cores);
+List dmnorm(const NumericVector x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const bool log, const bool grad_x, const bool grad_sigma, const bool is_validation, const Nullable<List> control, const int n_cores);
 static SEXP _mnorm_dmnorm_try(SEXP xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP logSEXP, SEXP grad_xSEXP, SEXP grad_sigmaSEXP, SEXP is_validationSEXP, SEXP controlSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -68,7 +68,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool >::type grad_x(grad_xSEXP);
     Rcpp::traits::input_parameter< const bool >::type grad_sigma(grad_sigmaSEXP);
     Rcpp::traits::input_parameter< const bool >::type is_validation(is_validationSEXP);
-    Rcpp::traits::input_parameter< Nullable<List> >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< const Nullable<List> >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const int >::type n_cores(n_coresSEXP);
     rcpp_result_gen = Rcpp::wrap(dmnorm(x, mean, sigma, given_ind, log, grad_x, grad_sigma, is_validation, control, n_cores));
     return rcpp_result_gen;
@@ -205,7 +205,7 @@ RcppExport SEXP _mnorm_seqPrimes(SEXP nSEXP) {
     return rcpp_result_gen;
 }
 // pmnorm
-List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const int n_sim, const String method, const String ordering, const bool log, const bool grad_lower, const bool grad_upper, const bool grad_sigma, const bool grad_given, const bool is_validation, Nullable<List> control, const int n_cores, Nullable<List> marginal, const bool grad_marginal, const bool grad_marginal_prob);
+List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind, const int n_sim, const String method, const String ordering, const bool log, const bool grad_lower, const bool grad_upper, const bool grad_sigma, const bool grad_given, const bool is_validation, const Nullable<List> control, const int n_cores, const Nullable<List> marginal, const bool grad_marginal, const bool grad_marginal_prob);
 static SEXP _mnorm_pmnorm_try(SEXP lowerSEXP, SEXP upperSEXP, SEXP given_xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP given_indSEXP, SEXP n_simSEXP, SEXP methodSEXP, SEXP orderingSEXP, SEXP logSEXP, SEXP grad_lowerSEXP, SEXP grad_upperSEXP, SEXP grad_sigmaSEXP, SEXP grad_givenSEXP, SEXP is_validationSEXP, SEXP controlSEXP, SEXP n_coresSEXP, SEXP marginalSEXP, SEXP grad_marginalSEXP, SEXP grad_marginal_probSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -224,9 +224,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool >::type grad_sigma(grad_sigmaSEXP);
     Rcpp::traits::input_parameter< const bool >::type grad_given(grad_givenSEXP);
     Rcpp::traits::input_parameter< const bool >::type is_validation(is_validationSEXP);
-    Rcpp::traits::input_parameter< Nullable<List> >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< const Nullable<List> >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const int >::type n_cores(n_coresSEXP);
-    Rcpp::traits::input_parameter< Nullable<List> >::type marginal(marginalSEXP);
+    Rcpp::traits::input_parameter< const Nullable<List> >::type marginal(marginalSEXP);
     Rcpp::traits::input_parameter< const bool >::type grad_marginal(grad_marginalSEXP);
     Rcpp::traits::input_parameter< const bool >::type grad_marginal_prob(grad_marginal_probSEXP);
     rcpp_result_gen = Rcpp::wrap(pmnorm(lower, upper, given_x, mean, sigma, given_ind, n_sim, method, ordering, log, grad_lower, grad_upper, grad_sigma, grad_given, is_validation, control, n_cores, marginal, grad_marginal, grad_marginal_prob));
@@ -380,11 +380,11 @@ static int _mnorm_RcppExport_validate(const char* sig) {
     static std::set<std::string> signatures;
     if (signatures.empty()) {
         signatures.insert("List(*cmnorm)(const NumericVector,const NumericMatrix,const NumericVector,const NumericVector,NumericVector,const bool,const bool,Nullable<List>,const int)");
-        signatures.insert("List(*dmnorm)(const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const bool,const bool,const bool,const bool,Nullable<List>,const int)");
+        signatures.insert("List(*dmnorm)(const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const bool,const bool,const bool,const bool,const Nullable<List>,const int)");
         signatures.insert("NumericMatrix(*halton)(const int,const IntegerVector,const int,const String,const String,const bool,const int)");
         signatures.insert("double(*haltonSingleDraw)(int,int)");
         signatures.insert("IntegerVector(*seqPrimes)(const int)");
-        signatures.insert("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,Nullable<List>,const int,Nullable<List>,const bool,const bool)");
+        signatures.insert("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,const Nullable<List>,const int,const Nullable<List>,const bool,const bool)");
         signatures.insert("double(*GHK)(const NumericVector,const NumericVector,const NumericMatrix,const arma::mat,const String,const int,const int)");
         signatures.insert("arma::vec(*qnormFast)(arma::vec const&,const int,const int,String,bool,const int)");
         signatures.insert("NumericMatrix(*rmnorm)(const int,const NumericVector,const NumericMatrix,const NumericVector,const NumericVector,const NumericVector,const bool,const int)");

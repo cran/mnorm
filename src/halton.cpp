@@ -1,3 +1,4 @@
+#define ARMA_DONT_USE_OPENMP
 #include <RcppArmadillo.h>
 #include "halton.h"
 #ifdef _OPENMP

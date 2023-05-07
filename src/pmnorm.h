@@ -19,9 +19,9 @@ List pmnorm(const NumericVector lower, const NumericVector upper,
             const bool grad_sigma,
             const bool grad_given,
             const bool is_validation,
-            Nullable<List> control,
+            const Nullable<List> control,
             const int n_cores,
-            Nullable<List> marginal,
+            const Nullable<List> marginal,
             const bool grad_marginal,
             const bool grad_marginal_prob);
   

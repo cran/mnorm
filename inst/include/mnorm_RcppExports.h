@@ -45,11 +45,11 @@ namespace mnorm {
         return Rcpp::as<List >(rcpp_result_gen);
     }
 
-    inline List dmnorm(const NumericVector x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind = NumericVector(), const bool log = false, const bool grad_x = false, const bool grad_sigma = false, const bool is_validation = true, Nullable<List> control = R_NilValue, const int n_cores = 1) {
+    inline List dmnorm(const NumericVector x, const NumericVector mean, const NumericMatrix sigma, const NumericVector given_ind = NumericVector(), const bool log = false, const bool grad_x = false, const bool grad_sigma = false, const bool is_validation = true, const Nullable<List> control = R_NilValue, const int n_cores = 1) {
         typedef SEXP(*Ptr_dmnorm)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
         static Ptr_dmnorm p_dmnorm = NULL;
         if (p_dmnorm == NULL) {
-            validateSignature("List(*dmnorm)(const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const bool,const bool,const bool,const bool,Nullable<List>,const int)");
+            validateSignature("List(*dmnorm)(const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const bool,const bool,const bool,const bool,const Nullable<List>,const int)");
             p_dmnorm = (Ptr_dmnorm)R_GetCCallable("mnorm", "_mnorm_dmnorm");
         }
         RObject rcpp_result_gen;
@@ -126,11 +126,11 @@ namespace mnorm {
         return Rcpp::as<IntegerVector >(rcpp_result_gen);
     }
 
-    inline List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x = NumericVector(), const NumericVector mean = NumericVector(), const NumericMatrix sigma = NumericMatrix(), const NumericVector given_ind = NumericVector(), const int n_sim = 1000, const String method = "default", const String ordering = "mean", const bool log = false, const bool grad_lower = false, const bool grad_upper = false, const bool grad_sigma = false, const bool grad_given = false, const bool is_validation = true, Nullable<List> control = R_NilValue, const int n_cores = 1, Nullable<List> marginal = R_NilValue, const bool grad_marginal = false, const bool grad_marginal_prob = false) {
+    inline List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x = NumericVector(), const NumericVector mean = NumericVector(), const NumericMatrix sigma = NumericMatrix(), const NumericVector given_ind = NumericVector(), const int n_sim = 1000, const String method = "default", const String ordering = "mean", const bool log = false, const bool grad_lower = false, const bool grad_upper = false, const bool grad_sigma = false, const bool grad_given = false, const bool is_validation = true, const Nullable<List> control = R_NilValue, const int n_cores = 1, const Nullable<List> marginal = R_NilValue, const bool grad_marginal = false, const bool grad_marginal_prob = false) {
         typedef SEXP(*Ptr_pmnorm)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
         static Ptr_pmnorm p_pmnorm = NULL;
         if (p_pmnorm == NULL) {
-            validateSignature("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,Nullable<List>,const int,Nullable<List>,const bool,const bool)");
+            validateSignature("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,const Nullable<List>,const int,const Nullable<List>,const bool,const bool)");
             p_pmnorm = (Ptr_pmnorm)R_GetCCallable("mnorm", "_mnorm_pmnorm");
         }
         RObject rcpp_result_gen;

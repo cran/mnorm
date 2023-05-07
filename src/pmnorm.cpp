@@ -1,3 +1,4 @@
+#define ARMA_DONT_USE_OPENMP
 #include <RcppArmadillo.h>
 #include <hpa.h>
 #include "halton.h"
@@ -72,9 +73,9 @@ List pmnorm(const NumericVector lower,
             const bool grad_sigma = false,
             const bool grad_given = false,
             const bool is_validation = true,
-            Nullable<List> control = R_NilValue,
+            const Nullable<List> control = R_NilValue,
             const int n_cores = 1,
-            Nullable<List> marginal = R_NilValue,
+            const Nullable<List> marginal = R_NilValue,
             const bool grad_marginal = false,
             const bool grad_marginal_prob = false)
 {
@@ -196,9 +197,9 @@ List pmnorm(const NumericVector lower,
   {
     marginal_names = marginal_par.names();
     n_marginal_par = NumericVector(n_dim);
-    if (n_marginal != n_dim)
+    if ((n_marginal != n_dim) | (marginal_names.size() != n_dim))
     {
-      std::string stop_message = "Wrong size of 'marginal_par' argument. "
+      std::string stop_message = "Wrong size of 'marginal' argument. "
       "Please, insure that it's length coincide with the number of "
       "multivariate normal distribution dimensions "
       "(including conditioned elements)";
@@ -320,23 +321,26 @@ List pmnorm(const NumericVector lower,
   }
 
   // Adjust for zero mean
-  for (int i = 0; i < n; i++)
-  {
-    for (int j = 0; j < n_dependent; j++)
-    {
-      int j_d = d_to_ind(j);
-      lower_mat(i, j) = lower_mat(i, j) - mean[j_d];
-      upper_mat(i, j) = upper_mat(i, j) - mean[j_d];
-    }
-  }
-  if (n_given > 0)
+  if (mean.size() != 0)
   {
     for (int i = 0; i < n; i++)
     {
-      for (int j = 0; j < n_given; j++)
+      for (int j = 0; j < n_dependent; j++)
       {
-        int j_g = g_to_ind(j);
-        given_x_mat(i, j) = given_x_mat(i, j) - mean[j_g];
+        int j_d = d_to_ind(j);
+        lower_mat(i, j) = lower_mat(i, j) - mean[j_d];
+        upper_mat(i, j) = upper_mat(i, j) - mean[j_d];
+      }
+    }
+    if (n_given > 0)
+    {
+      for (int i = 0; i < n; i++)
+      {
+        for (int j = 0; j < n_given; j++)
+        {
+          int j_g = g_to_ind(j);
+          given_x_mat(i, j) = given_x_mat(i, j) - mean[j_g];
+        }
       }
     }
   }

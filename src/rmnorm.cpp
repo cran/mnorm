@@ -1,3 +1,4 @@
+#define ARMA_DONT_USE_OPENMP
 #include <RcppArmadillo.h>
 #ifdef _OPENMP
 #include <omp.h>
