@@ -98,8 +98,8 @@ RcppExport SEXP _mnorm_dmnorm(SEXP xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP gi
     return rcpp_result_gen;
 }
 // halton
-NumericMatrix halton(const int n, const IntegerVector base, const int start, const String random, const String type, const bool is_validation, const int n_cores);
-static SEXP _mnorm_halton_try(SEXP nSEXP, SEXP baseSEXP, SEXP startSEXP, SEXP randomSEXP, SEXP typeSEXP, SEXP is_validationSEXP, SEXP n_coresSEXP) {
+NumericMatrix halton(const int n, const IntegerVector base, const int start, const String random, const String type, const String scrambler, const bool is_validation, const int n_cores);
+static SEXP _mnorm_halton_try(SEXP nSEXP, SEXP baseSEXP, SEXP startSEXP, SEXP randomSEXP, SEXP typeSEXP, SEXP scramblerSEXP, SEXP is_validationSEXP, SEXP n_coresSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< const int >::type n(nSEXP);
@@ -107,17 +107,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int >::type start(startSEXP);
     Rcpp::traits::input_parameter< const String >::type random(randomSEXP);
     Rcpp::traits::input_parameter< const String >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const String >::type scrambler(scramblerSEXP);
     Rcpp::traits::input_parameter< const bool >::type is_validation(is_validationSEXP);
     Rcpp::traits::input_parameter< const int >::type n_cores(n_coresSEXP);
-    rcpp_result_gen = Rcpp::wrap(halton(n, base, start, random, type, is_validation, n_cores));
+    rcpp_result_gen = Rcpp::wrap(halton(n, base, start, random, type, scrambler, is_validation, n_cores));
     return rcpp_result_gen;
 END_RCPP_RETURN_ERROR
 }
-RcppExport SEXP _mnorm_halton(SEXP nSEXP, SEXP baseSEXP, SEXP startSEXP, SEXP randomSEXP, SEXP typeSEXP, SEXP is_validationSEXP, SEXP n_coresSEXP) {
+RcppExport SEXP _mnorm_halton(SEXP nSEXP, SEXP baseSEXP, SEXP startSEXP, SEXP randomSEXP, SEXP typeSEXP, SEXP scramblerSEXP, SEXP is_validationSEXP, SEXP n_coresSEXP) {
     SEXP rcpp_result_gen;
     {
         Rcpp::RNGScope rcpp_rngScope_gen;
-        rcpp_result_gen = PROTECT(_mnorm_halton_try(nSEXP, baseSEXP, startSEXP, randomSEXP, typeSEXP, is_validationSEXP, n_coresSEXP));
+        rcpp_result_gen = PROTECT(_mnorm_halton_try(nSEXP, baseSEXP, startSEXP, randomSEXP, typeSEXP, scramblerSEXP, is_validationSEXP, n_coresSEXP));
     }
     Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
     if (rcpp_isInterrupt_gen) {
@@ -138,20 +139,21 @@ RcppExport SEXP _mnorm_halton(SEXP nSEXP, SEXP baseSEXP, SEXP startSEXP, SEXP ra
     return rcpp_result_gen;
 }
 // haltonSingleDraw
-double haltonSingleDraw(int ind, int base);
-static SEXP _mnorm_haltonSingleDraw_try(SEXP indSEXP, SEXP baseSEXP) {
+double haltonSingleDraw(int ind, int base, const String scrambler);
+static SEXP _mnorm_haltonSingleDraw_try(SEXP indSEXP, SEXP baseSEXP, SEXP scramblerSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< int >::type ind(indSEXP);
     Rcpp::traits::input_parameter< int >::type base(baseSEXP);
-    rcpp_result_gen = Rcpp::wrap(haltonSingleDraw(ind, base));
+    Rcpp::traits::input_parameter< const String >::type scrambler(scramblerSEXP);
+    rcpp_result_gen = Rcpp::wrap(haltonSingleDraw(ind, base, scrambler));
     return rcpp_result_gen;
 END_RCPP_RETURN_ERROR
 }
-RcppExport SEXP _mnorm_haltonSingleDraw(SEXP indSEXP, SEXP baseSEXP) {
+RcppExport SEXP _mnorm_haltonSingleDraw(SEXP indSEXP, SEXP baseSEXP, SEXP scramblerSEXP) {
     SEXP rcpp_result_gen;
     {
-        rcpp_result_gen = PROTECT(_mnorm_haltonSingleDraw_try(indSEXP, baseSEXP));
+        rcpp_result_gen = PROTECT(_mnorm_haltonSingleDraw_try(indSEXP, baseSEXP, scramblerSEXP));
     }
     Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
     if (rcpp_isInterrupt_gen) {
@@ -185,6 +187,74 @@ RcppExport SEXP _mnorm_seqPrimes(SEXP nSEXP) {
     SEXP rcpp_result_gen;
     {
         rcpp_result_gen = PROTECT(_mnorm_seqPrimes_try(nSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// toBase
+IntegerVector toBase(int x, const int base);
+static SEXP _mnorm_toBase_try(SEXP xSEXP, SEXP baseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< int >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const int >::type base(baseSEXP);
+    rcpp_result_gen = Rcpp::wrap(toBase(x, base));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _mnorm_toBase(SEXP xSEXP, SEXP baseSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_mnorm_toBase_try(xSEXP, baseSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// fromBase
+double fromBase(const IntegerVector x, const int base);
+static SEXP _mnorm_fromBase_try(SEXP xSEXP, SEXP baseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const IntegerVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const int >::type base(baseSEXP);
+    rcpp_result_gen = Rcpp::wrap(fromBase(x, base));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _mnorm_fromBase(SEXP xSEXP, SEXP baseSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_mnorm_fromBase_try(xSEXP, baseSEXP));
     }
     Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
     if (rcpp_isInterrupt_gen) {
@@ -381,9 +451,11 @@ static int _mnorm_RcppExport_validate(const char* sig) {
     if (signatures.empty()) {
         signatures.insert("List(*cmnorm)(const NumericVector,const NumericMatrix,const NumericVector,const NumericVector,NumericVector,const bool,const bool,Nullable<List>,const int)");
         signatures.insert("List(*dmnorm)(const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const bool,const bool,const bool,const bool,const Nullable<List>,const int)");
-        signatures.insert("NumericMatrix(*halton)(const int,const IntegerVector,const int,const String,const String,const bool,const int)");
-        signatures.insert("double(*haltonSingleDraw)(int,int)");
+        signatures.insert("NumericMatrix(*halton)(const int,const IntegerVector,const int,const String,const String,const String,const bool,const int)");
+        signatures.insert("double(*haltonSingleDraw)(int,int,const String)");
         signatures.insert("IntegerVector(*seqPrimes)(const int)");
+        signatures.insert("IntegerVector(*toBase)(int,const int)");
+        signatures.insert("double(*fromBase)(const IntegerVector,const int)");
         signatures.insert("List(*pmnorm)(const NumericVector,const NumericVector,const NumericVector,const NumericVector,const NumericMatrix,const NumericVector,const int,const String,const String,const bool,const bool,const bool,const bool,const bool,const bool,const Nullable<List>,const int,const Nullable<List>,const bool,const bool)");
         signatures.insert("double(*GHK)(const NumericVector,const NumericVector,const NumericMatrix,const arma::mat,const String,const int,const int)");
         signatures.insert("arma::vec(*qnormFast)(arma::vec const&,const int,const int,String,bool,const int)");
@@ -399,6 +471,8 @@ RcppExport SEXP _mnorm_RcppExport_registerCCallable() {
     R_RegisterCCallable("mnorm", "_mnorm_halton", (DL_FUNC)_mnorm_halton_try);
     R_RegisterCCallable("mnorm", "_mnorm_haltonSingleDraw", (DL_FUNC)_mnorm_haltonSingleDraw_try);
     R_RegisterCCallable("mnorm", "_mnorm_seqPrimes", (DL_FUNC)_mnorm_seqPrimes_try);
+    R_RegisterCCallable("mnorm", "_mnorm_toBase", (DL_FUNC)_mnorm_toBase_try);
+    R_RegisterCCallable("mnorm", "_mnorm_fromBase", (DL_FUNC)_mnorm_fromBase_try);
     R_RegisterCCallable("mnorm", "_mnorm_pmnorm", (DL_FUNC)_mnorm_pmnorm_try);
     R_RegisterCCallable("mnorm", "_mnorm_GHK", (DL_FUNC)_mnorm_GHK_try);
     R_RegisterCCallable("mnorm", "_mnorm_qnormFast", (DL_FUNC)_mnorm_qnormFast_try);
@@ -410,9 +484,11 @@ RcppExport SEXP _mnorm_RcppExport_registerCCallable() {
 static const R_CallMethodDef CallEntries[] = {
     {"_mnorm_cmnorm", (DL_FUNC) &_mnorm_cmnorm, 9},
     {"_mnorm_dmnorm", (DL_FUNC) &_mnorm_dmnorm, 10},
-    {"_mnorm_halton", (DL_FUNC) &_mnorm_halton, 7},
-    {"_mnorm_haltonSingleDraw", (DL_FUNC) &_mnorm_haltonSingleDraw, 2},
+    {"_mnorm_halton", (DL_FUNC) &_mnorm_halton, 8},
+    {"_mnorm_haltonSingleDraw", (DL_FUNC) &_mnorm_haltonSingleDraw, 3},
     {"_mnorm_seqPrimes", (DL_FUNC) &_mnorm_seqPrimes, 1},
+    {"_mnorm_toBase", (DL_FUNC) &_mnorm_toBase, 2},
+    {"_mnorm_fromBase", (DL_FUNC) &_mnorm_fromBase, 2},
     {"_mnorm_pmnorm", (DL_FUNC) &_mnorm_pmnorm, 20},
     {"_mnorm_GHK", (DL_FUNC) &_mnorm_GHK, 7},
     {"_mnorm_qnormFast", (DL_FUNC) &_mnorm_qnormFast, 6},

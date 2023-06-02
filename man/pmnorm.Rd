@@ -51,9 +51,10 @@ matrix of multivariate normal vector (distribution).}
 normal vector which are conditioned at values given by 
 \code{given_x} argument.}
 
-\item{n_sim}{positive integer representing the number of draws from Halton 
+\item{n_sim}{positive integer representing the number of draws from Richtmyer 
 sequence in GHK algorithm. More draws provide more accurate results by the 
-cost of additional computational burden.}
+cost of additional computational burden. Alternative types of sequences
+could be provided via \code{random_sequence} argument.}
 
 \item{method}{string representing the method to be used to calculate
 multivariate normal probabilities. Currently \code{"default"} is the
@@ -116,9 +117,7 @@ each parameter of marginal distributions i.e. respect to
 each element of \code{marginal}. The gradient respect to the parameters
 of the \code{i}-th marginal distribution will be stored in the
 \code{grad_marginal[[i]]} output matrix which \code{j}-th column
-stores derivatives respect to \code{marginal[[i]][j]}.
-Currently derivatives are available only respect to parameters 
-of \code{"PGN"} distribution.}
+stores derivatives respect to \code{marginal[[i]][j]}.}
 
 \item{grad_marginal_prob}{logical; if \code{TRUE} then the vector of partial
 derivatives (gradient) of probability will be calculated respect to 
@@ -194,7 +193,7 @@ To calculate trivariate probabilities the function uses Drezner method
 following formula (14) of A. Genz (2004). Similarly to bivariate
 case 30 points are used in Gauss-Legendre quadrature.
  
-For \eqn{m}-variate probabilities, where \eqn{m>2}, the function applies
+For \eqn{m}-variate probabilities, where \eqn{m > 3}, the function applies
 GHK algorithm described in section 4.2 of A. Genz and F. Bretz (2009).
 The implementation of GHK is based on deterministic Halton sequence 
 with \code{n_sim} draws and use variable reordering suggested in 
@@ -228,14 +227,14 @@ X_{i}=x^{(u)}_{i}\right)
 f_{X_{i}}\left(x^{(u)}_{i};\mu_{i},\Sigma_{i,i}\right)
 }
  
-If \code{grad_upper} is \code{TRUE} then function additionally estimates the
+If \code{grad_lower} is \code{TRUE} then function additionally estimates the
 gradient respect to \code{lower}:
  
 \deqn{
 \frac{\partial P\left(x^{(l)}\leq X\leq 
 x^{(u)}\right)}{\partial x^{(l)}_{i}}=
 -P\left(x^{(l)}_{(-i)}\leq X_{(-i)}\leq x^{(u)}_{(-i)}|
-X_{i}=x^{(u)}_{i}\right)
+X_{i}=x^{(l)}_{i}\right)
 f_{X_{i}}\left(x^{(l)}_{i};\mu_{i},\Sigma_{i,i}\right)
 }
 
@@ -247,28 +246,28 @@ calculates derivatives respect to the covariances:
 \frac{\partial P\left(x^{(l)}\leq X\leq 
 x^{(u)}\right)}{\partial \Sigma_{i, j}}=}
 \deqn{
-=P\left(x^{(l)}_{(-(i, j))}\leq X_{(-i, j)}\leq x^{(u)}_{(-(i, j))}|
+=P\left(x^{(l)}_{(-(i, j))}\leq X_{-(i, j)}\leq x^{(u)}_{(-(i, j))}|
 X_{i}=x^{(u)}_{i}, X_{j}=x^{(u)}_{j}\right)
 f_{X_{i}, X_{j}}\left(x^{(u)}_{i}, x^{(u)}_{j};
 \mu_{(i,j)},\Sigma_{(i, j),(i, j)}\right) -
 }
 
 \deqn{
--P\left(x^{(l)}_{(-(i, j))}\leq X_{(-i, j)}\leq x^{(u)}_{(-(i, j))}|
+-P\left(x^{(l)}_{(-(i, j))}\leq X_{-(i, j)}\leq x^{(u)}_{(-(i, j))}|
 X_{i}=x^{(l)}_{i}, X_{j}=x^{(u)}_{j}\right)
 f_{X_{i}, X_{j}}\left(x^{(l)}_{i}, x^{(u)}_{j};
 \mu_{(i,j)},\Sigma_{(i, j),(i, j)}\right) -
 }
 
 \deqn{
--P\left(x^{(l)}_{(-(i, j))}\leq X_{(-i, j)}\leq x^{(u)}_{(-(i, j))}|
+-P\left(x^{(l)}_{(-(i, j))}\leq X_{-(i, j)}\leq x^{(u)}_{(-(i, j))}|
 X_{i}=x^{(u)}_{i}, X_{j}=x^{(l)}_{j}\right)
 f_{X_{i}, X_{j}}\left(x^{(u)}_{i}, x^{(l)}_{j};
 \mu_{(i,j)},\Sigma_{(i, j),(i, j)}\right) +
 }
 
 \deqn{
-+P\left(x^{(l)}_{(-(i, j))}\leq X_{(-i, j)}\leq x^{(u)}_{(-(i, j))}|
++P\left(x^{(l)}_{(-(i, j))}\leq X_{-(i, j)}\leq x^{(u)}_{(-(i, j))}|
 X_{i}=x^{(l)}_{i}, X_{j}=x^{(l)}_{j}\right)
 f_{X_{i}, X_{j}}\left(x^{(l)}_{i}, x^{(l)}_{j};
 \mu_{(i,j)},\Sigma_{(i, j),(i, j)}\right)
@@ -293,7 +292,7 @@ x^{(u)}\right)}{\partial x^{(u)}_{i}} \frac{x^{(u)}_{i}}{2\Sigma_{i, i}}-
 \deqn{
 -\sum\limits_{j\ne i}\frac{\partial P\left(x^{(l)}\leq X\leq 
 x^{(u)}\right)}{\partial \Sigma_{i, j}}
-\frac{\Sigma_{i, j}}{2\Sigma_{j, j}}
+\frac{\Sigma_{i, j}}{2\Sigma_{i, i}}
 }
 
 If \code{grad_given} is \code{TRUE} then function additionally estimates the
@@ -302,10 +301,6 @@ described in Details section of \code{\link[mnorm]{dmnorm}}.
 
 More details on abovementioned differentiation formulas could
 be found in the appendix of E. Kossova and B. Potanin (2018).
-
-Currently \code{control} has no input arguments intended for
-the users. This argument is used for some internal purposes
-of the package.
 
 If \code{marginal} is not empty then Gaussian copula will be used instead of
 a classical multivariate normal distribution. Without loss of generality
@@ -347,6 +342,14 @@ substituting lower and upper integration limits \eqn{x^{(l)}} and
 correspondingly. Therefore differentiation formulas are similar to
 those mentioned above and will be automatically adjusted if
 \code{marginal} is not empty (including conditional probabilities).
+
+Argument \code{control} is a list with the following input parameters:
+\itemize{
+\item \code{random_sequence} -- numeric matrix of uniform pseudo random numbers 
+(like Halton sequence). The number of columns should be equal to
+the number of dimensions of multivariate random vector. If omitted than 
+this matrix will be generated automatically using \code{n_sim} number 
+of simulations.}
 }
 \examples{
 # Consider multivariate normal vector:

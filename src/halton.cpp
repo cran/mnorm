@@ -12,7 +12,7 @@ using namespace Rcpp;
 // [[Rcpp::interfaces(r, cpp)]]
 
 // Tasks
-// 1. Add scrambling and shuffling for 'halton'
+// 1. Add shuffling for 'halton'
 // 2. Add Sieve of Eratosthenes and Atkin for 'seqPrimes'
 
 //' Halton sequence
@@ -32,6 +32,9 @@ using namespace Rcpp;
 //' @param type string representing type of the sequence. Default is "halton"
 //' that is Halton sequence. The alternative is "richtmyer" corresponding 
 //' to Richtmyer sequence.
+//' @param scrambler string representing scrambling method for the 
+//' Halton sequence. Possible options are \code{"NO"} (default), \code{"root"}
+//' and \code{"negroot"} which described in S. Kolenikov (2012).
 //' @template param_is_validation_Template
 //' @template param_n_cores_Template
 //' @details Function \code{\link[mnorm]{seqPrimes}} could be used to
@@ -40,6 +43,7 @@ using namespace Rcpp;
 //' is a sequence with base \code{base[i]} and elements with indexes
 //' from \code{start} to \code{start + n}.
 //' @references J. Halton (1964) <doi:10.2307/2347972>
+//' @references S. Kolenikov (2012) <doi:10.1177/1536867X1201200103>
 //' @examples halton(n = 100, base = c(2, 3, 5), start = 10)
 // [[Rcpp::export(rng = true)]]
 NumericMatrix halton(const int n = 1, 
@@ -47,6 +51,7 @@ NumericMatrix halton(const int n = 1,
                      const int start = 1,
                      const String random = "NO",
                      const String type = "halton",
+                     const String scrambler = "NO",
                      const bool is_validation = true,
                      const int n_cores = 1)
 {
@@ -83,7 +88,7 @@ NumericMatrix halton(const int n = 1,
   // Matrix to store Halton sequence for each base
   NumericMatrix h = NumericMatrix(n, dim);
   
-  // Calculate elements of the richtmyer sequence
+  // Calculate elements of the Richtmyer sequence
   if (type == "richtmyer")
   {
     #ifdef _OPENMP
@@ -100,7 +105,8 @@ NumericMatrix halton(const int n = 1,
   }
   
   // Calculate elements of the Halton sequence
-  if (type == "halton")
+  // without scrambling
+  if ((type == "halton"))
   {
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static) num_threads(n_cores) if (n_cores > 1)
@@ -109,7 +115,7 @@ NumericMatrix halton(const int n = 1,
     {
       for(int i = 0; i < n; i++)
       {
-        h(i, b) = haltonSingleDraw(i + start, base[b]);
+        h(i, b) = haltonSingleDraw(i + start, base[b], scrambler);
       }
     }
   }
@@ -131,19 +137,48 @@ NumericMatrix halton(const int n = 1,
 }
 
 // [[Rcpp::export(rng = false)]]
-double haltonSingleDraw(int ind = 1, int base = 2)
+double haltonSingleDraw(int ind = 1, int base = 2, 
+                        const String scrambler = "NO")
 {
   double f = 1;
   double r = 0;
   
-  while (ind > 0)
+  if (scrambler == "NO")
   {
-    f = f / base;
-    r = r + f * (ind % base);
-    ind = ind / base;
+    while (ind > 0)
+    {
+      f = f / base;
+      r = r + f * (ind % base);
+      ind = ind / base;
+    }
+    return(r);
   }
   
-  return r;
+  if (scrambler == "root")
+  {
+    int base_common = floor(sqrt(base));
+    while (ind > 0)
+    {
+      f = f / base;
+      r = r + f * ((base_common * (ind % base)) % base);
+      ind = ind / base;
+    }
+    return(r);
+  }
+  
+  if (scrambler == "negroot")
+  {
+    int base_common = base - (int)round(sqrt(base));
+    while (ind > 0)
+    {
+      f = f / base;
+      r = r + f * ((base_common * (ind % base)) % base);
+      ind = ind / base;
+    }
+    return(r);
+  }
+  
+  return(r);
 }
 
 //' Sequence of prime numbers
@@ -190,4 +225,50 @@ IntegerVector seqPrimes(const int n)
   }
   
   return(primes);
+}
+
+//' Convert integer value to other base
+//' @description Converts integer value to other base.
+//' @param x positive integer representing the number to convert.
+//' @param base positive integer representing the base.
+//' @return The function returns a numeric vector containing 
+//' representation of \code{x} in a base given in \code{base}.
+//' @examples toBase(888, 5)
+// [[Rcpp::export(rng = false)]]
+IntegerVector toBase(int x, const int base = 2)
+{
+  IntegerVector val;
+  
+  // Apply Horner's method
+  while (x > 0)
+  {
+    val.push_front(x % base);
+    x = x / base;
+  }
+  
+  return(val);
+}
+
+//' Convert base representation of a number into integer
+//' @description Converts base representation of a number into integer.
+//' @param x vector of positive integer coefficients representing the number
+//' in base that is \code{base}.
+//' @param base positive integer representing the base.
+//' @return The function returns a positive integer that is a
+//' conversion from \code{base} under given coefficients \code{x}.
+//' @examples fromBase(c(1, 2, 0, 2, 3), 5)
+// [[Rcpp::export(rng = false)]]
+double fromBase(const IntegerVector x, const int base = 2)
+{
+  const int n = x.size();
+
+  int mult = 1;
+  int y = 0;
+  for (int i = n - 1; i >= 0; i--)
+  {
+    y += x(i) * mult;
+    mult *= base;
+  }
+  
+  return(y);
 }

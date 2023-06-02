@@ -62,6 +62,9 @@ dmnorm <- function(x, mean, sigma, given_ind = numeric(), log = FALSE, grad_x = 
 #' @param type string representing type of the sequence. Default is "halton"
 #' that is Halton sequence. The alternative is "richtmyer" corresponding 
 #' to Richtmyer sequence.
+#' @param scrambler string representing scrambling method for the 
+#' Halton sequence. Possible options are \code{"NO"} (default), \code{"root"}
+#' and \code{"negroot"} which described in S. Kolenikov (2012).
 #' @template param_is_validation_Template
 #' @template param_n_cores_Template
 #' @details Function \code{\link[mnorm]{seqPrimes}} could be used to
@@ -70,13 +73,14 @@ dmnorm <- function(x, mean, sigma, given_ind = numeric(), log = FALSE, grad_x = 
 #' is a sequence with base \code{base[i]} and elements with indexes
 #' from \code{start} to \code{start + n}.
 #' @references J. Halton (1964) <doi:10.2307/2347972>
+#' @references S. Kolenikov (2012) <doi:10.1177/1536867X1201200103>
 #' @examples halton(n = 100, base = c(2, 3, 5), start = 10)
-halton <- function(n = 1L, base = as.integer( c(2)), start = 1L, random = "NO", type = "halton", is_validation = TRUE, n_cores = 1L) {
-    .Call(`_mnorm_halton`, n, base, start, random, type, is_validation, n_cores)
+halton <- function(n = 1L, base = as.integer( c(2)), start = 1L, random = "NO", type = "halton", scrambler = "NO", is_validation = TRUE, n_cores = 1L) {
+    .Call(`_mnorm_halton`, n, base, start, random, type, scrambler, is_validation, n_cores)
 }
 
-haltonSingleDraw <- function(ind = 1L, base = 2L) {
-    .Call(`_mnorm_haltonSingleDraw`, ind, base)
+haltonSingleDraw <- function(ind = 1L, base = 2L, scrambler = "NO") {
+    .Call(`_mnorm_haltonSingleDraw`, ind, base, scrambler)
 }
 
 #' Sequence of prime numbers
@@ -89,6 +93,29 @@ haltonSingleDraw <- function(ind = 1L, base = 2L) {
 #' @examples seqPrimes(10)
 seqPrimes <- function(n) {
     .Call(`_mnorm_seqPrimes`, n)
+}
+
+#' Convert integer value to other base
+#' @description Converts integer value to other base.
+#' @param x positive integer representing the number to convert.
+#' @param base positive integer representing the base.
+#' @return The function returns a numeric vector containing 
+#' representation of \code{x} in a base given in \code{base}.
+#' @examples toBase(888, 5)
+toBase <- function(x, base = 2L) {
+    .Call(`_mnorm_toBase`, x, base)
+}
+
+#' Convert base representation of a number into integer
+#' @description Converts base representation of a number into integer.
+#' @param x vector of positive integer coefficients representing the number
+#' in base that is \code{base}.
+#' @param base positive integer representing the base.
+#' @return The function returns a positive integer that is a
+#' conversion from \code{base} under given coefficients \code{x}.
+#' @examples fromBase(c(1, 2, 0, 2, 3), 5)
+fromBase <- function(x, base = 2L) {
+    .Call(`_mnorm_fromBase`, x, base)
 }
 
 #' Probabilities of (conditional) multivariate normal distribution

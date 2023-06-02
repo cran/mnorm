@@ -107,16 +107,17 @@ and \eqn{x^{(g)}} are of the form:
 \deqn{\nabla_{x^{(d)}}\ln f(x^{(d)}|x^{(g)}) =
 -\left(x^{(d)}-\mu_{c}\right)\Sigma_{c}^{-1}}
 \deqn{\nabla_{x^{(g)}}\ln f(x^{(d)}|x^{(g)}) =
-\nabla_{x^{(d)}}f(x^{(d)}|x^{(g)})\Sigma_{d,g}\Sigma_{g,g}^{-1}}
+-\nabla_{x^{(d)}}f(x^{(d)}|x^{(g)})\Sigma_{d,g}\Sigma_{g,g}^{-1}}
 
 If \code{grad_sigma} is \code{TRUE} then function additionally estimates
 the gradient respect to the elements of covariance matrix \eqn{\Sigma}.
 For \eqn{i\in I_{d}} and \eqn{j\in I_{d}} the function calculates:
 \deqn{
 \frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial \Sigma_{i, j}} = 
-\frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial x_{i}} \times 
-\frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial x_{j}} \times
-\Sigma_{c,(i, j)}^{-1} / \left(1 + I(i=j)\right),
+\left(\frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial x_{i}} \times 
+\frac{\partial \ln f(x^{(d)}|x^{(g)})}{\partial x_{j}} -
+\Sigma_{c,(i, j)}^{-1}\right) / 
+\left(1 + I(i=j)\right),
 }
 where \eqn{I(i=j)} is an indicator function which equals \eqn{1} when
 the condition \eqn{i=j} is satisfied and \eqn{0} otherwise.
@@ -134,7 +135,7 @@ For \eqn{i\in I_{d}} and \eqn{j\in I_{g}} the following formula is used:
 where \eqn{q_{g}(j)=\sum\limits_{k=1}^{m} I\left(I_{g,k} \leq j\right)}
 and \eqn{q_{d}(i)=\sum\limits_{k=1}^{m} I\left(I_{d,k} \leq i\right)}
 represent the order of the \eqn{i}-th and \eqn{j}-th elements 
-in \eqn{I_{g}} and \eqn{I_{g}} correspondingly i.e. 
+in \eqn{I_{g}} and \eqn{I_{d}} correspondingly i.e. 
 \eqn{x_{i}=x^{(d)}_{q_{d}(i)}=x_{I_{d, q_{d}(i)}}} and 
 \eqn{x_{j}=x^{(g)}_{q_{g}(j)}=x_{I_{g, q_{g}(j)}}}.
 Note that \eqn{q_{g}(j)^{-1}} and \eqn{q_{d}(i)^{-1}} are inverse functions.
@@ -155,7 +156,7 @@ For \eqn{i\in I_{g}} and \eqn{j\in I_{g}} the following formula is used:
 {\partial \Sigma_{q_{d}(k_{1})^{-1}, q_{d}(k_{2})^{-1}}}
 \left(\Sigma_{d,g} \times \Sigma_{g,g}^{-1} \times I_{g}^{*} \times 
 \Sigma_{g,g}^{-1}\times\Sigma_{d,g}^T\right)_{q_{d}(k_{1})^{-1}, 
-q_{d}(k_{2})^{-1},}
+q_{d}(k_{2})^{-1}},
 }
 where \eqn{I_{g}^{*}} is a square \eqn{n_{g}}-dimensional matrix of 
 zeros except \eqn{I_{g,(i,j)}^{*}=I_{g,(j,i)}^{*}=1}.

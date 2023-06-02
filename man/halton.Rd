@@ -10,6 +10,7 @@ halton(
   start = 1L,
   random = "NO",
   type = "halton",
+  scrambler = "NO",
   is_validation = TRUE,
   n_cores = 1L
 )
@@ -33,6 +34,10 @@ a new element of the sequence.}
 \item{type}{string representing type of the sequence. Default is "halton"
 that is Halton sequence. The alternative is "richtmyer" corresponding 
 to Richtmyer sequence.}
+
+\item{scrambler}{string representing scrambling method for the 
+Halton sequence. Possible options are \code{"NO"} (default), \code{"root"}
+and \code{"negroot"} which described in S. Kolenikov (2012).}
 
 \item{is_validation}{logical value indicating whether input 
 arguments should be validated.  Set it to \code{FALSE} to get
@@ -60,4 +65,6 @@ halton(n = 100, base = c(2, 3, 5), start = 10)
 }
 \references{
 J. Halton (1964) <doi:10.2307/2347972>
+
+S. Kolenikov (2012) <doi:10.1177/1536867X1201200103>
 }

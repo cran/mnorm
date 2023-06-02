@@ -457,25 +457,46 @@ List pmnorm(const NumericVector lower,
           }
         }
         // Student distribution
-        if (marginal_names[i] == "student")
+        if ((marginal_names[i] == "student") || (marginal_names[i] == "t"))
         {
           n_marginal_par[i] = 1;
           double df = marginal_par[i];
+          double delta = 1e-6;
           if (df <= 2)
           {
             stop("Degrees of freedom of Student distribution should be greater than 2");
           }
           double marginal_sd = sqrt(df / (df - 2));
           double sd_ratio = marginal_sd / sigma_sqrt;
+          double df_delta;
+          double marginal_sd_delta;
+          if (is_grad)
+          {
+            df_delta = df + delta;
+            marginal_sd_delta = sqrt(df_delta / (df_delta - 2));
+          }
           if (given_ind_logical[i])
           {
             NumericVector arg_tmp = marginal_sd * given_x_mat(_, i_adj);
+            NumericVector arg_tmp_delta;
+            NumericVector p_df_delta;
             if (is_grad)
             {
+              double df_delta = df + delta;
               grad_tmp_given = Rcpp::dt(arg_tmp, df);
+              arg_tmp_delta = sqrt(df_delta / (df_delta - 2)) * 
+                                   given_x_mat(_, i_adj);
               grad_tmp_given = sd_ratio * grad_tmp_given;
+              p_df_delta = Rcpp::pt(arg_tmp_delta, df_delta);
             }
             given_x_mat(_, i_adj) = Rcpp::pt(arg_tmp, df);
+            if (is_grad)
+            {
+              NumericMatrix mat_tmp(n, 1);
+              NumericVector p_df = given_x_mat(_, i_adj);
+              mat_tmp(_, 0) = (p_df_delta - p_df) / delta;
+              grad_tmp_marginal_given = as<arma::mat>(mat_tmp);
+            }
             given_x_mat(_, i_adj) = Rcpp::qnorm(given_x_mat(_, i_adj), 0.0, 1.0);
             if (grad_sigma)
             {
@@ -494,10 +515,27 @@ List pmnorm(const NumericVector lower,
               grad_tmp_lower = sd_ratio * grad_tmp_lower;
               grad_tmp_upper = sd_ratio * grad_tmp_upper;
             }
-            lower_mat(_, i_adj) = Rcpp::pt(arg_tmp_lower, df);
-            upper_mat(_, i_adj) = Rcpp::pt(arg_tmp_upper, df);
-            lower_mat(_, i_adj) = Rcpp::qnorm(lower_mat(_, i_adj), 0.0, 1.0);
-            upper_mat(_, i_adj) = Rcpp::qnorm(upper_mat(_, i_adj), 0.0, 1.0);
+            NumericVector p_lower = Rcpp::pt(arg_tmp_lower, df);
+            NumericVector p_upper = Rcpp::pt(arg_tmp_upper, df);
+            // gradient respect to degrees of freedom
+            if (is_grad)
+            {
+              NumericVector arg_tmp_lower_delta = marginal_sd_delta * 
+                                                  lower_mat(_, i_adj);
+              NumericVector arg_tmp_upper_delta = marginal_sd_delta * 
+                                                  upper_mat(_, i_adj);
+              NumericVector p_lower_delta = Rcpp::pt(arg_tmp_lower_delta, df_delta);
+              NumericVector p_upper_delta = Rcpp::pt(arg_tmp_upper_delta, df_delta);
+              NumericMatrix mat_tmp1(n, 1);
+              mat_tmp1(_, 0) = (p_lower_delta - p_lower) / delta;
+              NumericMatrix mat_tmp2(n, 1);
+              mat_tmp2(_, 0) = (p_upper_delta - p_upper) / delta;
+              grad_tmp_marginal_lower = as<arma::mat>(mat_tmp1);
+              grad_tmp_marginal_upper = as<arma::mat>(mat_tmp2);
+            }
+            //
+            lower_mat(_, i_adj) = Rcpp::qnorm(p_lower, 0.0, 1.0);
+            upper_mat(_, i_adj) = Rcpp::qnorm(p_upper, 0.0, 1.0);
             if (grad_sigma)
             {
               NumericVector vec_tmp = lower_mat(_, i_adj);
@@ -1149,10 +1187,29 @@ List pmnorm(const NumericVector lower,
   // Special routine for multivariate case (at least 3 dimensions)
   if ((n_dependent > 3) | (method == "GHK"))
   {
+    NumericMatrix random_sequence;
+    bool is_random_sequence = control1.containsElementNamed("random_sequence");
     // Generate Halton sequence
-    arma::mat h(as<arma::mat>(halton(n_sim, seqPrimes(n_dim), 100,
-                                     "NO", "halton", false, n_cores)));
-    h.reshape(n_sim, n_dim);
+    if (!is_random_sequence)
+    {
+      random_sequence = halton(n_sim, seqPrimes(n_dim), 100,
+                               "NO", "richtmyer", "NO", 
+                               false, n_cores);
+    }
+    else
+    {
+      NumericMatrix random_sequence_tmp = control1["random_sequence"];
+      random_sequence = random_sequence_tmp;
+    }
+    arma::mat h(as<arma::mat>(random_sequence));
+    if (!is_random_sequence)
+    {
+      h.reshape(random_sequence.size() / n_dim, n_dim);
+    }
+    else
+    {
+      h.reshape(n_sim, n_dim);
+    }
 
     // Estimate the probabilities
     // for each observation
@@ -1454,7 +1511,8 @@ List pmnorm(const NumericVector lower,
     {
       int i_adj;
       grad_marginal_arma.at(i) = arma::mat(n, n_marginal_par[i]);
-      if ((marginal_names[i] == "PGN") || (marginal_names[i] == "hpa"))
+      if ((marginal_names[i] == "PGN") || (marginal_names[i] == "hpa") ||
+          (marginal_names[i] == "student") || (marginal_names[i] == "t"))
       {
         if (given_ind_logical[i])
         {

@@ -336,7 +336,7 @@ List dmnorm(const NumericVector x,
   {
     grad_x_arma.cols(given_arma) = grad_x_arma.cols(dependent_arma) * (-s12s22);
   }
-  
+
   // Vectors to help convert indexes of multivariate normal
   // vector to the ordered indexes of dependent and given components
   NumericVector ind_to_d = NumericVector(n_dim);
@@ -457,15 +457,21 @@ List dmnorm(const NumericVector x,
   if (!log)
   {
     grad_x_arma = grad_x_arma.each_col() % den;
-    for (int i = 0; i < n; i++)
+    if (grad_sigma)
     {
-      grad_sigma_arma.slice(i) *= den.at(i);
+      for (int i = 0; i < n; i++)
+      {
+        grad_sigma_arma.slice(i) *= den.at(i);
+      }
     }
   }
   
   // Aggregate the result into the output (return) list
   return_list["grad_x"] = grad_x_arma;
-  return_list["grad_sigma"] = grad_sigma_arma;
+  if (grad_sigma)
+  {
+    return_list["grad_sigma"] = grad_sigma_arma;
+  }
   
   // Return the results
   return_list.attr("class") = "mnorm_dmnorm";

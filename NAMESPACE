@@ -8,4 +8,4 @@ export("dmnorm", "pmnorm", "cmnorm", "rmnorm")
 
 export("qnormFast")
 
-export("halton", "seqPrimes")
+export("halton", "seqPrimes", "toBase", "fromBase")

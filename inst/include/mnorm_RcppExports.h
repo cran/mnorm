@@ -65,17 +65,17 @@ namespace mnorm {
         return Rcpp::as<List >(rcpp_result_gen);
     }
 
-    inline NumericMatrix halton(const int n = 1, const IntegerVector base = IntegerVector::create(2), const int start = 1, const String random = "NO", const String type = "halton", const bool is_validation = true, const int n_cores = 1) {
-        typedef SEXP(*Ptr_halton)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+    inline NumericMatrix halton(const int n = 1, const IntegerVector base = IntegerVector::create(2), const int start = 1, const String random = "NO", const String type = "halton", const String scrambler = "NO", const bool is_validation = true, const int n_cores = 1) {
+        typedef SEXP(*Ptr_halton)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
         static Ptr_halton p_halton = NULL;
         if (p_halton == NULL) {
-            validateSignature("NumericMatrix(*halton)(const int,const IntegerVector,const int,const String,const String,const bool,const int)");
+            validateSignature("NumericMatrix(*halton)(const int,const IntegerVector,const int,const String,const String,const String,const bool,const int)");
             p_halton = (Ptr_halton)R_GetCCallable("mnorm", "_mnorm_halton");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_halton(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(base)), Shield<SEXP>(Rcpp::wrap(start)), Shield<SEXP>(Rcpp::wrap(random)), Shield<SEXP>(Rcpp::wrap(type)), Shield<SEXP>(Rcpp::wrap(is_validation)), Shield<SEXP>(Rcpp::wrap(n_cores)));
+            rcpp_result_gen = p_halton(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(base)), Shield<SEXP>(Rcpp::wrap(start)), Shield<SEXP>(Rcpp::wrap(random)), Shield<SEXP>(Rcpp::wrap(type)), Shield<SEXP>(Rcpp::wrap(scrambler)), Shield<SEXP>(Rcpp::wrap(is_validation)), Shield<SEXP>(Rcpp::wrap(n_cores)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -86,16 +86,16 @@ namespace mnorm {
         return Rcpp::as<NumericMatrix >(rcpp_result_gen);
     }
 
-    inline double haltonSingleDraw(int ind = 1, int base = 2) {
-        typedef SEXP(*Ptr_haltonSingleDraw)(SEXP,SEXP);
+    inline double haltonSingleDraw(int ind = 1, int base = 2, const String scrambler = "NO") {
+        typedef SEXP(*Ptr_haltonSingleDraw)(SEXP,SEXP,SEXP);
         static Ptr_haltonSingleDraw p_haltonSingleDraw = NULL;
         if (p_haltonSingleDraw == NULL) {
-            validateSignature("double(*haltonSingleDraw)(int,int)");
+            validateSignature("double(*haltonSingleDraw)(int,int,const String)");
             p_haltonSingleDraw = (Ptr_haltonSingleDraw)R_GetCCallable("mnorm", "_mnorm_haltonSingleDraw");
         }
         RObject rcpp_result_gen;
         {
-            rcpp_result_gen = p_haltonSingleDraw(Shield<SEXP>(Rcpp::wrap(ind)), Shield<SEXP>(Rcpp::wrap(base)));
+            rcpp_result_gen = p_haltonSingleDraw(Shield<SEXP>(Rcpp::wrap(ind)), Shield<SEXP>(Rcpp::wrap(base)), Shield<SEXP>(Rcpp::wrap(scrambler)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -124,6 +124,46 @@ namespace mnorm {
         if (rcpp_result_gen.inherits("try-error"))
             throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<IntegerVector >(rcpp_result_gen);
+    }
+
+    inline IntegerVector toBase(int x, const int base = 2) {
+        typedef SEXP(*Ptr_toBase)(SEXP,SEXP);
+        static Ptr_toBase p_toBase = NULL;
+        if (p_toBase == NULL) {
+            validateSignature("IntegerVector(*toBase)(int,const int)");
+            p_toBase = (Ptr_toBase)R_GetCCallable("mnorm", "_mnorm_toBase");
+        }
+        RObject rcpp_result_gen;
+        {
+            rcpp_result_gen = p_toBase(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(base)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<IntegerVector >(rcpp_result_gen);
+    }
+
+    inline double fromBase(const IntegerVector x, const int base = 2) {
+        typedef SEXP(*Ptr_fromBase)(SEXP,SEXP);
+        static Ptr_fromBase p_fromBase = NULL;
+        if (p_fromBase == NULL) {
+            validateSignature("double(*fromBase)(const IntegerVector,const int)");
+            p_fromBase = (Ptr_fromBase)R_GetCCallable("mnorm", "_mnorm_fromBase");
+        }
+        RObject rcpp_result_gen;
+        {
+            rcpp_result_gen = p_fromBase(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(base)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<double >(rcpp_result_gen);
     }
 
     inline List pmnorm(const NumericVector lower, const NumericVector upper, const NumericVector given_x = NumericVector(), const NumericVector mean = NumericVector(), const NumericMatrix sigma = NumericMatrix(), const NumericVector given_ind = NumericVector(), const int n_sim = 1000, const String method = "default", const String ordering = "mean", const bool log = false, const bool grad_lower = false, const bool grad_upper = false, const bool grad_sigma = false, const bool grad_given = false, const bool is_validation = true, const Nullable<List> control = R_NilValue, const int n_cores = 1, const Nullable<List> marginal = R_NilValue, const bool grad_marginal = false, const bool grad_marginal_prob = false) {
