@@ -222,7 +222,7 @@ List cmnorm(const NumericVector mean,
   const arma::mat sigma_dg = sigma_arma.submat(dependent_arma, given_arma);
   
   // Estimate preliminary component
-  const arma::mat sigma_g_inv = sigma_g.i();
+  const arma::mat sigma_g_inv = arma::inv_sympd(sigma_g);
   const arma::mat s12s22 = (sigma_dg * sigma_g_inv);
   const arma::mat s12s22t = s12s22.t();
 

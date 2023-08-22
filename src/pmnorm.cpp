@@ -7,6 +7,7 @@
 #include "GaussLegendre.h"
 #include "cmnorm.h"
 #include "qmnorm.h"
+#include "t0.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -56,6 +57,10 @@ using namespace Rcpp;
 //' @references E. Kossova, B. Potanin (2018). 
 //' Heckman method and switching regression model multivariate generalization.
 //' Applied Econometrics, vol. 50, pages 114-143.
+//' @references H. I. Gassmann (2003). 
+//' Multivariate Normal Probabilities: Implementing an Old Idea of Plackett's.
+//' Journal of Computational and Graphical Statistics, vol. 12 (3),
+//' pages 731-752.
 //' @export
 // [[Rcpp::export(rng = false)]]
 List pmnorm(const NumericVector lower, 
@@ -79,12 +84,6 @@ List pmnorm(const NumericVector lower,
             const bool grad_marginal = false,
             const bool grad_marginal_prob = false)
 {
-  // Future updates
-  // 1) Add derivative respect to degrees of freedom of Student distribution
-  //    and then remove text that there is no such deriative in
-  //    'examples_pmnorm_Template', 'return_pmnorm_Template' and 
-  //    'param_grad_marginal_Template'
-  
   // Create output list
   List return_list;
   
@@ -459,44 +458,21 @@ List pmnorm(const NumericVector lower,
         // Student distribution
         if ((marginal_names[i] == "student") || (marginal_names[i] == "t"))
         {
-          n_marginal_par[i] = 1;
           double df = marginal_par[i];
-          double delta = 1e-6;
-          if (df <= 2)
-          {
-            stop("Degrees of freedom of Student distribution should be greater than 2");
-          }
-          double marginal_sd = sqrt(df / (df - 2));
-          double sd_ratio = marginal_sd / sigma_sqrt;
-          double df_delta;
-          double marginal_sd_delta;
-          if (is_grad)
-          {
-            df_delta = df + delta;
-            marginal_sd_delta = sqrt(df_delta / (df_delta - 2));
-          }
+          n_marginal_par[i] = 1;
           if (given_ind_logical[i])
           {
-            NumericVector arg_tmp = marginal_sd * given_x_mat(_, i_adj);
-            NumericVector arg_tmp_delta;
-            NumericVector p_df_delta;
+            List t_grad = pt0(given_x_mat(_, i_adj), df, 
+                              false, true, true, 10);
             if (is_grad)
             {
-              double df_delta = df + delta;
-              grad_tmp_given = Rcpp::dt(arg_tmp, df);
-              arg_tmp_delta = sqrt(df_delta / (df_delta - 2)) * 
-                                   given_x_mat(_, i_adj);
-              grad_tmp_given = sd_ratio * grad_tmp_given;
-              p_df_delta = Rcpp::pt(arg_tmp_delta, df_delta);
-            }
-            given_x_mat(_, i_adj) = Rcpp::pt(arg_tmp, df);
-            if (is_grad)
-            {
-              NumericMatrix mat_tmp(n, 1);
-              NumericVector p_df = given_x_mat(_, i_adj);
-              mat_tmp(_, 0) = (p_df_delta - p_df) / delta;
+              grad_tmp_given = t_grad["grad_x"];
+              grad_tmp_given = grad_tmp_given / sigma_sqrt;
+              NumericMatrix mat_tmp = t_grad["grad_df"];
               grad_tmp_marginal_given = as<arma::mat>(mat_tmp);
             }
+            NumericVector t_tmp = t_grad["prob"];
+            given_x_mat(_, i_adj) = t_tmp;
             given_x_mat(_, i_adj) = Rcpp::qnorm(given_x_mat(_, i_adj), 0.0, 1.0);
             if (grad_sigma)
             {
@@ -506,36 +482,27 @@ List pmnorm(const NumericVector lower,
           }
           else
           {
-            NumericVector arg_tmp_lower = marginal_sd * lower_mat(_, i_adj);
-            NumericVector arg_tmp_upper = marginal_sd * upper_mat(_, i_adj);
+            List t_grad_lower = pt0(lower_mat(_, i_adj), df, 
+                                    false, true, true, 10);
+            List t_grad_upper = pt0(upper_mat(_, i_adj), df, 
+                                    false, true, true, 10);
             if (is_grad)
             {
-              grad_tmp_lower = Rcpp::dt(arg_tmp_lower, df);
-              grad_tmp_upper = Rcpp::dt(arg_tmp_upper, df);
-              grad_tmp_lower = sd_ratio * grad_tmp_lower;
-              grad_tmp_upper = sd_ratio * grad_tmp_upper;
-            }
-            NumericVector p_lower = Rcpp::pt(arg_tmp_lower, df);
-            NumericVector p_upper = Rcpp::pt(arg_tmp_upper, df);
-            // gradient respect to degrees of freedom
-            if (is_grad)
-            {
-              NumericVector arg_tmp_lower_delta = marginal_sd_delta * 
-                                                  lower_mat(_, i_adj);
-              NumericVector arg_tmp_upper_delta = marginal_sd_delta * 
-                                                  upper_mat(_, i_adj);
-              NumericVector p_lower_delta = Rcpp::pt(arg_tmp_lower_delta, df_delta);
-              NumericVector p_upper_delta = Rcpp::pt(arg_tmp_upper_delta, df_delta);
-              NumericMatrix mat_tmp1(n, 1);
-              mat_tmp1(_, 0) = (p_lower_delta - p_lower) / delta;
-              NumericMatrix mat_tmp2(n, 1);
-              mat_tmp2(_, 0) = (p_upper_delta - p_upper) / delta;
+              grad_tmp_lower = t_grad_lower["grad_x"];
+              grad_tmp_lower = grad_tmp_lower / sigma_sqrt;
+              grad_tmp_upper = t_grad_upper["grad_x"];
+              grad_tmp_upper = grad_tmp_upper / sigma_sqrt;
+              NumericMatrix mat_tmp1 = t_grad_lower["grad_df"];
               grad_tmp_marginal_lower = as<arma::mat>(mat_tmp1);
+              NumericMatrix mat_tmp2 = t_grad_upper["grad_df"];
               grad_tmp_marginal_upper = as<arma::mat>(mat_tmp2);
             }
-            //
-            lower_mat(_, i_adj) = Rcpp::qnorm(p_lower, 0.0, 1.0);
-            upper_mat(_, i_adj) = Rcpp::qnorm(p_upper, 0.0, 1.0);
+            NumericVector t_tmp_lower = t_grad_lower["prob"];
+            NumericVector t_tmp_upper = t_grad_upper["prob"];
+            lower_mat(_, i_adj) = t_tmp_lower;
+            upper_mat(_, i_adj) = t_tmp_upper;
+            lower_mat(_, i_adj) = Rcpp::qnorm(lower_mat(_, i_adj), 0.0, 1.0);
+            upper_mat(_, i_adj) = Rcpp::qnorm(upper_mat(_, i_adj), 0.0, 1.0);
             if (grad_sigma)
             {
               NumericVector vec_tmp = lower_mat(_, i_adj);
@@ -721,7 +688,7 @@ List pmnorm(const NumericVector lower,
   // Prepare vector to store probabilities
   arma::vec prob(n);
   
-  //Special routine for univariate case
+  // Special routine for univariate case
   if (n_dependent == 1)
   {
     double sigma_cond_sqr = sqrt(sigma_cond_arma(0, 0));
@@ -734,12 +701,9 @@ List pmnorm(const NumericVector lower,
   // normal and t probabilities. Statistics and Computing 14, 251–260 (2004). 
   // https://doi.org/10.1023/B:STCO.0000035304.20635.31
   // Formula (3) with 30 Gauss-Legendre points.
-  if ((n_dependent == 2) & ((method == "Drezner-Wesolowsky") || 
+  if ((n_dependent == 2) & ((method == "Gassmann") || 
                             (method == "default")))
   {
-    // Preliminary constants
-    const double pi = 3.141592653589793238463;
-    
     // Covariance matrix parameters
     double sigma1 = sqrt(sigma_cond_arma.at(0, 0));
     double sigma2 = sqrt(sigma_cond_arma.at(1, 1));
@@ -760,7 +724,7 @@ List pmnorm(const NumericVector lower,
     // Preliminary values for vectorization purposes
     arma::vec adj = 1 - pow(x, 2);
     arma::vec adj1 = 1 / (2 * adj);
-    arma::vec adj2 = w % (rho / (4 * pi * sqrt(adj)));
+    arma::vec adj2 = w % (rho / (4 * arma::datum::pi * sqrt(adj)));
     
     // Calculate probability
     arma::vec prob0 = (arma::normcdf(upr1) - arma::normcdf(lwr1)) %
@@ -825,12 +789,9 @@ List pmnorm(const NumericVector lower,
   // normal and t probabilities. Statistics and Computing 14, 251–260 (2004). 
   // https://doi.org/10.1023/B:STCO.0000035304.20635.31
   // Formula (14) with 30 Gauss-Legendre points.
-  if ((n_dependent == 3) & ((method == "Drezner") || 
+  if ((n_dependent == 3) & ((method == "Gassmann") || 
                             (method == "default")))
   {
-    // Preliminary constants
-    const double pi = 3.141592653589793238463;
-    
     // Covariance matrix parameters before permutation
     arma::vec sigma3 = {sqrt(sigma_cond_arma.at(0, 0)),
                         sqrt(sigma_cond_arma.at(1, 1)),
@@ -911,8 +872,10 @@ List pmnorm(const NumericVector lower,
     arma::vec u2_nom_sp = (cor3.at(1) * cor3.at(2) - cor3.at(0)) * x;
     arma::vec u3_nom_sp = (cor3.at(0) * cor3.at(2) - cor3.at(1)) * x;
     // divide by 4 instead of 2 because of change of variable in the quadrature
-    arma::vec w2 = w % ((cor3.at(1) / (4 * pi)) / arma::sqrt(one_minus_cor13_x_sqr));
-    arma::vec w3 = w % ((cor3.at(0) / (4 * pi)) / arma::sqrt(one_minus_cor12_x_sqr));
+    arma::vec w2 = w % ((cor3.at(1) / (4 * arma::datum::pi)) / 
+                   arma::sqrt(one_minus_cor13_x_sqr));
+    arma::vec w3 = w % ((cor3.at(0) / (4 * arma::datum::pi)) / 
+                   arma::sqrt(one_minus_cor12_x_sqr));
     
     // Some functions of integration limits
     arma::mat lwr_sqr = arma::pow(lwr, 2);
@@ -1184,15 +1147,269 @@ List pmnorm(const NumericVector lower,
     prob = prob + prob0;
   }
   
-  // Special routine for multivariate case (at least 3 dimensions)
-  if ((n_dependent > 3) | (method == "GHK"))
+  // Special routine for 4-5 dimensional probabilities
+  // Gassmann (2003), matrix 5 representation (1-split)
+  // if ((((n_dependent == 4) || (n_dependent == 5)) & (method == "default")) ||
+  //     ((method == "Gassmann") & (n_dependent > 3)))
+  if ((method == "Gassmann") & (n_dependent > 3))
+  {
+    // Method
+    String method_gassmann = "Gassmann";
+    
+    // Standardize integration limits
+    arma::mat lwr = arma::mat(n, n_dependent);
+    arma::mat upr = arma::mat(n, n_dependent);
+    arma::vec sd_val = arma::sqrt(arma::diagvec(sigma_cond_arma));
+    for (int i = 0; i < n_dependent; i++)
+    {
+      lwr.col(i) = lower_d_arma.col(i) / sd_val.at(i);
+      upr.col(i) = upper_d_arma.col(i) / sd_val.at(i);
+    }
+    
+    // Convert covariance matrix to correlation matrix
+    arma::mat cor = arma::mat(n_dependent, n_dependent);
+    for (int i = 0; i < n_dependent; i++)
+    {
+      for (int j = 0; j <= i; j++)
+      {
+        cor.at(i, j) = sigma_cond_arma.at(i, j) / (sd_val.at(i) * sd_val.at(j));
+        cor.at(j, i) = cor.at(i, j);
+      }
+    }
+    
+    // Calculate first part of the probability
+    NumericMatrix lwr_P = wrap(lwr.submat(0, 0, n - 1, n_dependent - 2));
+    NumericMatrix upr_P = wrap(upr.submat(0, 0, n - 1, n_dependent - 2));
+    arma::mat cor_P_arma = cor.submat(0, 0, n_dependent - 2, n_dependent - 2);
+    NumericMatrix cor_P = wrap(cor_P_arma);
+    NumericVector mean_P = NumericVector(n_dependent - 1);
+    if (n_dependent <= 4)
+    {
+      method_gassmann = "default";
+    }
+    List prob0_list = pmnorm(lwr_P, upr_P, 
+                             NumericVector(),
+                             mean_P, cor_P,
+                             NumericVector(), n_sim,
+                             method_gassmann, "mean",
+                             false, false, false, false, false, false,
+                             R_NilValue, n_cores);
+    if (n_dependent <= 5)
+    {
+      method_gassmann = "default";
+    }
+    arma::vec prob0 = prob0_list["prob"];
+    prob0 = prob0 % (arma::normcdf(upr.col(n_dependent - 1)) - 
+                     arma::normcdf(lwr.col(n_dependent - 1)));
+    
+    // Insert a row of zero correlations to cor_P
+    cor_P_arma = cor * 1.0;
+    for (int i = 0; i < (n_dependent - 1); i++)
+    {
+      cor_P_arma.at(n_dependent - 1, i) = 0;
+      cor_P_arma.at(i, n_dependent - 1) = 0;
+    }
+    
+    // Gauss quadrature values accounting for change
+    // of variables from [-1, 1] to [0, 1]
+    int n_gs = 30;
+    arma::mat gs = as<arma::mat>(GaussQuadrature(n_gs));
+    arma::vec x = (gs.col(0) + 1) / 2;
+    arma::vec w = gs.col(1) / 2;
+
+    // Calculate the second part of the probability
+    arma::vec prob1(n);
+    NumericVector mean_zero_2 = NumericVector(2);
+    NumericVector mean_zero_d2 = NumericVector(n_dependent);
+    arma::vec val(n);
+    for(int j = 0; j < (n_dependent - 1); j++)
+    {
+      // indexes
+      arma::uvec ind = {(unsigned int)j, (unsigned int)(n_dependent - 1)};
+      arma::uvec noind(n_dependent - 2);
+      int counter = 0;
+      for (int u1 = 0; u1 < (n_dependent - 1); u1++)
+      {
+        if (u1 != j)
+        {
+          noind.at(counter) = (unsigned int)u1;
+          counter++;
+        }
+      }
+      NumericVector ind_vec = wrap(ind + 1);
+      // submatrices
+        // non-changing
+      arma::mat upr_noind_arma  = upr.cols(noind);
+      NumericMatrix upr_noind_mat = wrap(upr_noind_arma);
+      arma::mat lwr_noind_arma  = lwr.cols(noind);
+      NumericMatrix lwr_noind_mat = wrap(lwr_noind_arma);
+        // for phases
+      arma::mat upr_ind_arma = upr.cols(ind);
+      arma::mat lwr_ind_arma = lwr.cols(ind);
+      NumericMatrix uu_ind_mat = wrap(upr_ind_arma);
+      NumericMatrix ll_ind_mat = wrap(lwr_ind_arma);
+      arma::mat ul_ind_arma(n, 2);
+      ul_ind_arma.col(0) = upr.col(ind.at(0));
+      ul_ind_arma.col(1) = lwr.col(ind.at(1));
+      NumericMatrix ul_ind_mat = wrap(ul_ind_arma);
+      arma::mat lu_ind_arma(n, 2);
+      lu_ind_arma.col(0) = lwr.col(ind.at(0));
+      lu_ind_arma.col(1) = upr.col(ind.at(1));
+      NumericMatrix lu_ind_mat = wrap(lu_ind_arma);
+        // select observations
+      LogicalVector is_use_uu = (uu_ind_mat(_, 0) != R_PosInf) &
+                                (uu_ind_mat(_, 1) != R_PosInf);
+      int is_use_uu_n = sum(is_use_uu);
+      List control_uu = List::create(Named("is_use") = is_use_uu);
+          //
+      LogicalVector is_use_ul = (ul_ind_mat(_, 0) != R_PosInf) &
+                                (ul_ind_mat(_, 1) != R_NegInf);
+      List control_ul = List::create(Named("is_use") = is_use_ul);
+      int is_use_ul_n = sum(is_use_ul);
+          //
+      LogicalVector is_use_lu = (lu_ind_mat(_, 0) != R_NegInf) &
+                                (lu_ind_mat(_, 1) != R_PosInf);
+      List control_lu = List::create(Named("is_use") = is_use_lu);
+      int is_use_lu_n = sum(is_use_lu);
+          //
+      LogicalVector is_use_ll = (ll_ind_mat(_, 0) != R_NegInf) &
+                                (ll_ind_mat(_, 1) != R_NegInf);
+      List control_ll = List::create(Named("is_use") = is_use_ll);
+      int is_use_ll_n = sum(is_use_ll);
+      // Main integration routine
+      for (int t = 0; t < n_gs; t++)
+      {
+        // aggregation variable
+        arma::vec prob_j(n);
+        
+        // omega
+        arma::mat omega_arma = (1 - x.at(t)) * cor_P_arma + x.at(t) * cor;
+        NumericMatrix omega = wrap(omega_arma);
+        arma::mat omega_ind_arma = omega_arma.submat(ind, ind);
+        NumericMatrix omega_ind = wrap(omega_ind_arma);
+        
+        // -------
+        // Phase 1
+        // -------
+        
+        if (is_use_uu_n != 0)
+        {
+          // density
+          List p11_list = dmnorm(uu_ind_mat,
+                                 mean_zero_2, omega_ind,
+                                 NumericVector(),
+                                 false, false, false, false,
+                                 control_uu, n_cores);
+          arma::vec p11 = p11_list["den"];
+          // probability
+          List p12_list = pmnorm(lwr_noind_mat, upr_noind_mat,
+                                 uu_ind_mat,
+                                 mean_zero_d2, omega,
+                                 ind_vec, n_sim,
+                                 method_gassmann, "mean",
+                                 false, false, false, false, false, false,
+                                 control_uu, n_cores);
+          arma::vec p12 = p12_list["prob"];
+          // aggregation
+          prob_j = prob_j + p11 % p12;
+        }
+        
+        // -------
+        // Phase 2
+        // -------
+
+        if (is_use_ul_n != 0)
+        {
+          // density
+          List p21_list = dmnorm(ul_ind_mat,
+                                 mean_zero_2, omega_ind,
+                                 NumericVector(),
+                                 false, false, false, false,
+                                 control_ul, n_cores);
+          arma::vec p21 = p21_list["den"];
+          // probability
+          List p22_list = pmnorm(lwr_noind_mat, upr_noind_mat,
+                                 ul_ind_mat,
+                                 mean_zero_d2, omega,
+                                 ind_vec, n_sim,
+                                 method_gassmann, "mean",
+                                 false, false, false, false, false, false,
+                                 control_ul, n_cores);
+          arma::vec p22 = p22_list["prob"];
+          // aggregation
+          prob_j = prob_j - p21 % p22;
+        }
+
+        // -------
+        // Phase 3
+        // -------
+
+        if (is_use_lu_n != 0)
+        {
+          // density
+          List p31_list = dmnorm(lu_ind_mat,
+                                 mean_zero_2, omega_ind,
+                                 NumericVector(),
+                                 false, false, false, false,
+                                 control_lu, n_cores);
+          arma::vec p31 = p31_list["den"];
+          // probability
+          List p32_list = pmnorm(lwr_noind_mat, upr_noind_mat,
+                                 lu_ind_mat,
+                                 mean_zero_d2, omega,
+                                 ind_vec, n_sim,
+                                 method_gassmann, "mean",
+                                 false, false, false, false, false, false,
+                                 control_lu, n_cores);
+          arma::vec p32 = p32_list["prob"];
+          // aggregation
+          prob_j = prob_j - p31 % p32;
+        }
+
+        // -------
+        // Phase 4
+        // -------
+
+        if (is_use_ll_n != 0)
+        {
+          // density
+          List p41_list = dmnorm(ll_ind_mat,
+                                 mean_zero_2, omega_ind,
+                                 NumericVector(),
+                                 false, false, false, false,
+                                 control_ll, n_cores);
+          arma::vec p41 = p41_list["den"];
+          // probability
+          List p42_list = pmnorm(lwr_noind_mat, upr_noind_mat,
+                                 ll_ind_mat,
+                                 mean_zero_d2, omega,
+                                 ind_vec, n_sim,
+                                 method_gassmann, "mean",
+                                 false, false, false, false, false, false,
+                                 control_ll, n_cores);
+          arma::vec p42 = p42_list["prob"];
+          // aggregation
+          prob_j = prob_j + p41 % p42;
+        }
+        
+        // Aggregation
+        prob1 = prob1 + prob_j * (cor.at(j, n_dependent - 1) * w.at(t));
+      }
+    }
+      // Sum probabilities
+      prob = prob0 + prob1;
+  }
+  
+  // Special routine for multivariate case (at least 5 dimensions)
+  if (((method == "default") & (n_dependent > 3)) || 
+      ((method == "GHK") & (n_dependent > 1)))
   {
     NumericMatrix random_sequence;
     bool is_random_sequence = control1.containsElementNamed("random_sequence");
     // Generate Halton sequence
     if (!is_random_sequence)
     {
-      random_sequence = halton(n_sim, seqPrimes(n_dim), 100,
+      random_sequence = halton(n_sim, seqPrimes(n_dependent), 100,
                                "NO", "richtmyer", "NO", 
                                false, n_cores);
     }
@@ -1204,11 +1421,11 @@ List pmnorm(const NumericVector lower,
     arma::mat h(as<arma::mat>(random_sequence));
     if (!is_random_sequence)
     {
-      h.reshape(random_sequence.size() / n_dim, n_dim);
+      h.reshape(random_sequence.size() / n_dependent, n_dependent);
     }
     else
     {
-      h.reshape(n_sim, n_dim);
+      h.reshape(n_sim, n_dependent);
     }
 
     // Estimate the probabilities

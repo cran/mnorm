@@ -57,8 +57,11 @@ cost of additional computational burden. Alternative types of sequences
 could be provided via \code{random_sequence} argument.}
 
 \item{method}{string representing the method to be used to calculate
-multivariate normal probabilities. Currently \code{"default"} is the
-only available option. See Details section below.}
+multivariate normal probabilities. Possible options are \code{"GHK"} and 
+\code{"Gassmann"} recommended for high dimensional (more than 5) and 
+low dimensional probabilities correspondingly.
+Additional option \code{"default"} selects optimal method depending on
+the number of dimensions. See 'Details' for additional information.}
 
 \item{ordering}{string representing the method to be used to 
 order the integrals. See Details section below.}
@@ -192,14 +195,30 @@ slightly faster because of better vectorization capabilities.
 To calculate trivariate probabilities the function uses Drezner method
 following formula (14) of A. Genz (2004). Similarly to bivariate
 case 30 points are used in Gauss-Legendre quadrature.
+
+The function may apply the method of Gassmann (2003) for estimation of
+\eqn{m>3} dimensional normal probabilities. It uses
+matrix \eqn{5} representation of Gassmann (2003) and 30 points of 
+Gauss-Legendre quadrature.
  
-For \eqn{m}-variate probabilities, where \eqn{m > 3}, the function applies
+For \eqn{m}-variate probabilities, where \eqn{m > 1}, the function may apply
 GHK algorithm described in section 4.2 of A. Genz and F. Bretz (2009).
 The implementation of GHK is based on deterministic Halton sequence 
-with \code{n_sim} draws and use variable reordering suggested in 
+with \code{n_sim} draws and uses variable reordering suggested in 
 section 4.1.3 of A. Genz and F. Bretz (2009). The ordering algorithm may
 be determined via \code{ordering} argument. Available options 
 are \code{"NO"}, \code{"mean"} (default), and \code{"variance"}.
+
+Univariate probabilities are always calculated via standard approach so in
+this case \code{method} will not affect the output.
+If \code{method = "Gassmann"} then the function uses fast (aforementioned) 
+algorithms for bivariate and trivariate probabilities or the method of 
+Gassmann for \eqn{m>3} dimensional probabilities.
+If \code{method = "GHK"} then GHK algorithm is used.
+If \code{method = "default"} then \code{"Gassmann"} is used for bivariate
+and trivariate probabilities while \code{"GHK"} is used for \eqn{m>3}
+dimensional probabilities. During future updates \code{"Gassmann"} may become
+a default method for calculation of the \eqn{4-5} dimensional probabilities.
 
 We are going to provide alternative estimation algorithms during
 future updates. These methods will be available via \code{method} argument.
@@ -323,7 +342,7 @@ P_{i}(t) = \frac{1}{1+e^{-\pi t / \sqrt{3}}}
 }
 
 Let's denote by \eqn{X^{*}} random vector which is distributed
-with Gaussian (it's covariance matrix is \eqn{\Sigma}) copula and 
+with Gaussian (its covariance matrix is \eqn{\Sigma}) copula and 
 marginals defined by \code{marginal}.
 Then probabilities for these random vector are calculated as follows:
 \deqn{P\left(x^{(l)}\leq X^{*}\leq 
@@ -559,4 +578,9 @@ Springer-Verlag, Heidelberg.
 E. Kossova, B. Potanin (2018). 
 Heckman method and switching regression model multivariate generalization.
 Applied Econometrics, vol. 50, pages 114-143.
+
+H. I. Gassmann (2003). 
+Multivariate Normal Probabilities: Implementing an Old Idea of Plackett's.
+Journal of Computational and Graphical Statistics, vol. 12 (3),
+pages 731-752.
 }

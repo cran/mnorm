@@ -9,3 +9,5 @@ export("dmnorm", "pmnorm", "cmnorm", "rmnorm")
 export("qnormFast")
 
 export("halton", "seqPrimes", "toBase", "fromBase")
+
+export("pbetaDiff", "dt0", "pt0", "qt0", "rt0")

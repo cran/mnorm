@@ -247,6 +247,108 @@ namespace mnorm {
         return Rcpp::as<NumericMatrix >(rcpp_result_gen);
     }
 
+    inline List pbetaDiff(const arma::vec x, const double p = 10, const double q = 0.5, const int n = 10, const bool is_validation = true, const Nullable<List> control = R_NilValue) {
+        typedef SEXP(*Ptr_pbetaDiff)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+        static Ptr_pbetaDiff p_pbetaDiff = NULL;
+        if (p_pbetaDiff == NULL) {
+            validateSignature("List(*pbetaDiff)(const arma::vec,const double,const double,const int,const bool,const Nullable<List>)");
+            p_pbetaDiff = (Ptr_pbetaDiff)R_GetCCallable("mnorm", "_mnorm_pbetaDiff");
+        }
+        RObject rcpp_result_gen;
+        {
+            rcpp_result_gen = p_pbetaDiff(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(p)), Shield<SEXP>(Rcpp::wrap(q)), Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(is_validation)), Shield<SEXP>(Rcpp::wrap(control)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<List >(rcpp_result_gen);
+    }
+
+    inline List dt0(const arma::vec x, const double df = 10, const bool log = false, const bool grad_x = false, const bool grad_df = false) {
+        typedef SEXP(*Ptr_dt0)(SEXP,SEXP,SEXP,SEXP,SEXP);
+        static Ptr_dt0 p_dt0 = NULL;
+        if (p_dt0 == NULL) {
+            validateSignature("List(*dt0)(const arma::vec,const double,const bool,const bool,const bool)");
+            p_dt0 = (Ptr_dt0)R_GetCCallable("mnorm", "_mnorm_dt0");
+        }
+        RObject rcpp_result_gen;
+        {
+            rcpp_result_gen = p_dt0(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(df)), Shield<SEXP>(Rcpp::wrap(log)), Shield<SEXP>(Rcpp::wrap(grad_x)), Shield<SEXP>(Rcpp::wrap(grad_df)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<List >(rcpp_result_gen);
+    }
+
+    inline List pt0(const arma::vec x, const double df = 10, const bool log = false, const bool grad_x = false, const bool grad_df = false, const int n = 10) {
+        typedef SEXP(*Ptr_pt0)(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+        static Ptr_pt0 p_pt0 = NULL;
+        if (p_pt0 == NULL) {
+            validateSignature("List(*pt0)(const arma::vec,const double,const bool,const bool,const bool,const int)");
+            p_pt0 = (Ptr_pt0)R_GetCCallable("mnorm", "_mnorm_pt0");
+        }
+        RObject rcpp_result_gen;
+        {
+            rcpp_result_gen = p_pt0(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(df)), Shield<SEXP>(Rcpp::wrap(log)), Shield<SEXP>(Rcpp::wrap(grad_x)), Shield<SEXP>(Rcpp::wrap(grad_df)), Shield<SEXP>(Rcpp::wrap(n)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<List >(rcpp_result_gen);
+    }
+
+    inline NumericVector rt0(const int n = 1, const double df = 10) {
+        typedef SEXP(*Ptr_rt0)(SEXP,SEXP);
+        static Ptr_rt0 p_rt0 = NULL;
+        if (p_rt0 == NULL) {
+            validateSignature("NumericVector(*rt0)(const int,const double)");
+            p_rt0 = (Ptr_rt0)R_GetCCallable("mnorm", "_mnorm_rt0");
+        }
+        RObject rcpp_result_gen;
+        {
+            RNGScope RCPP_rngScope_gen;
+            rcpp_result_gen = p_rt0(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(df)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<NumericVector >(rcpp_result_gen);
+    }
+
+    inline NumericVector qt0(const NumericVector x = 1, const double df = 10) {
+        typedef SEXP(*Ptr_qt0)(SEXP,SEXP);
+        static Ptr_qt0 p_qt0 = NULL;
+        if (p_qt0 == NULL) {
+            validateSignature("NumericVector(*qt0)(const NumericVector,const double)");
+            p_qt0 = (Ptr_qt0)R_GetCCallable("mnorm", "_mnorm_qt0");
+        }
+        RObject rcpp_result_gen;
+        {
+            RNGScope RCPP_rngScope_gen;
+            rcpp_result_gen = p_qt0(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(df)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<NumericVector >(rcpp_result_gen);
+    }
+
 }
 
 #endif // RCPP_mnorm_RCPPEXPORTS_H_GEN_

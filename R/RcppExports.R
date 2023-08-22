@@ -153,6 +153,10 @@ fromBase <- function(x, base = 2L) {
 #' @references E. Kossova, B. Potanin (2018). 
 #' Heckman method and switching regression model multivariate generalization.
 #' Applied Econometrics, vol. 50, pages 114-143.
+#' @references H. I. Gassmann (2003). 
+#' Multivariate Normal Probabilities: Implementing an Old Idea of Plackett's.
+#' Journal of Computational and Graphical Statistics, vol. 12 (3),
+#' pages 731-752.
 #' @export
 pmnorm <- function(lower, upper, given_x = numeric(), mean = numeric(), sigma = matrix(), given_ind = numeric(), n_sim = 1000L, method = "default", ordering = "mean", log = FALSE, grad_lower = FALSE, grad_upper = FALSE, grad_sigma = FALSE, grad_given = FALSE, is_validation = TRUE, control = NULL, n_cores = 1L, marginal = NULL, grad_marginal = FALSE, grad_marginal_prob = FALSE) {
     .Call(`_mnorm_pmnorm`, lower, upper, given_x, mean, sigma, given_ind, n_sim, method, ordering, log, grad_lower, grad_upper, grad_sigma, grad_given, is_validation, control, n_cores, marginal, grad_marginal, grad_marginal_prob)
@@ -218,6 +222,90 @@ qnormFast <- function(p, mean = 0L, sd = 1L, method = "Voutier", is_validation =
 #' @export
 rmnorm <- function(n, mean, sigma, given_ind = numeric(), given_x = numeric(), dependent_ind = numeric(), is_validation = TRUE, n_cores = 1L) {
     .Call(`_mnorm_rmnorm`, n, mean, sigma, given_ind, given_x, dependent_ind, is_validation, n_cores)
+}
+
+#' Differentiate Regularized Incomplete Beta Function.
+#' @description Calculate derivatives of the regularized incomplete 
+#' beta function that is a cumulative distribution function of the beta
+#' distribution.
+#' @param x numeric vector of values between 0 and 1. It is similar to
+#' \code{q} argument of \code{\link[stats]{pbeta}} function.
+#' @param p similar to \code{shape1} argument of 
+#' \code{\link[stats]{pbeta}} function.
+#' @param q similar to \code{shape2} argument of 
+#' \code{\link[stats]{pbeta}} function.
+#' @param n positive integer representing the number of iterations used
+#' to calculate the derivatives. Greater values provide higher accuracy by the
+#' cost of more computational resources.
+#' @param is_validation logical; if \code{TRUE} then input arguments are
+#' validated. Set to \code{FALSE} to slightly increase the performance
+#' of the function.
+#' @param control list of control parameters. Currently not intended 
+#' for the users.
+#' @details The function implements differentiation algorithm of 
+#' R. Boik and J. Robinson-Cox (1998). 
+#' Currently only first-order derivatives are considered.
+#' @return The function returns a list which has the following elements:
+#' \itemize{
+#' \item \code{dx} - numeric vector of derivatives respect to each 
+#' element of \code{x}.
+#' \item \code{dp} - numeric vector of derivatives respect to \code{p} for
+#' each element of \code{x}.
+#' \item \code{dq} - numeric vector of derivatives respect to \code{q} for
+#' each element of \code{x}.
+#' }
+#' @references Boik, R. J. and Robinson-Cox, J. F. (1998). Derivatives of the 
+#' Incomplete Beta Function. Journal of Statistical Software, 3 (1),
+#' pages 1-20.
+#' @template example_pbetaDiff_Template
+pbetaDiff <- function(x, p = 10, q = 0.5, n = 10L, is_validation = TRUE, control = NULL) {
+    .Call(`_mnorm_pbetaDiff`, x, p, q, n, is_validation, control)
+}
+
+#' Standardized Student t Distribution
+#' @name stdt
+#' @description These functions calculate and differentiate a cumulative 
+#' distribution function and density function of the standardized 
+#' (to zero mean and unit variance) Student distribution. Quantile function 
+#' and random numbers generator are also provided.
+#' @param x numeric vector of quantiles.
+#' @param df positive real value representing the number of degrees of freedom.
+#' Since this function deals with standardized Student distribution, argument
+#' \code{df} should be greater than \code{2} because otherwise variance is
+#' undefined.
+#' @param log logical; if \code{TRUE} then probabilities (or densities) p 
+#' are given as log(p) and derivatives will be given respect to log(p).
+#' @param grad_x logical; if \code{TRUE} then function returns a derivative
+#' respect to \code{x}.
+#' @param grad_df logical; if \code{TRUE} then function returns a derivative
+#' respect to \code{df}.
+#' @param n positive integer. If \code{rt0} function is used then this 
+#' argument represents the number of random draws. Otherwise \code{n} states 
+#' for the number of iterations used to calculate the derivatives associated 
+#' with \code{pt0} function via \code{\link[mnorm]{pbetaDiff}} function.
+#' @template details_t0_Template
+#' @template return_t0_Template
+#' @template example_t0_Template
+dt0 <- function(x, df = 10, log = FALSE, grad_x = FALSE, grad_df = FALSE) {
+    .Call(`_mnorm_dt0`, x, df, log, grad_x, grad_df)
+}
+
+#' @name stdt
+#' @export
+pt0 <- function(x, df = 10, log = FALSE, grad_x = FALSE, grad_df = FALSE, n = 10L) {
+    .Call(`_mnorm_pt0`, x, df, log, grad_x, grad_df, n)
+}
+
+#' @name stdt
+#' @export
+rt0 <- function(n = 1L, df = 10) {
+    .Call(`_mnorm_rt0`, n, df)
+}
+
+#' @name stdt
+#' @export
+qt0 <- function(x = 1L, df = 10) {
+    .Call(`_mnorm_qt0`, x, df)
 }
 
 # Register entry points for exported C++ functions
