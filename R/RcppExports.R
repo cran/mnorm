@@ -310,5 +310,5 @@ qt0 <- function(x = 1L, df = 10) {
 
 # Register entry points for exported C++ functions
 methods::setLoadAction(function(ns) {
-    .Call('_mnorm_RcppExport_registerCCallable', PACKAGE = 'mnorm')
+    .Call(`_mnorm_RcppExport_registerCCallable`)
 })

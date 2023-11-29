@@ -1,6 +1,6 @@
-0e0e5419db32f1ed3d8013f537609882 *DESCRIPTION
+6bda259549b463da2926ee9b5766802a *DESCRIPTION
 9d69aa7578c2fa44cafc72f0c1fd1f28 *NAMESPACE
-d90ffb1c78db45f99ef4224a1ec1391f *R/RcppExports.R
+1aa696442e713c69c7cd9e7e8b96b83d *R/RcppExports.R
 f831b91d049ffff08b0b20ef01a33358 *inst/include/mnorm.h
 50920778eae0ef9408d98cd098febc35 *inst/include/mnorm_RcppExports.h
 95ad7149ef516a457e079a05f02caabb *man/cmnorm.Rd
@@ -18,7 +18,7 @@ d45befbc39dec66913559b79d950d0f0 *src/GaussLegendre.cpp
 13a6a7d77866c1b8abff0bcbeb4ef600 *src/GaussLegendre.h
 a0c3e600711f0bd81c59bcf4d02c9cb2 *src/Makevars
 8f25336fa3ada54b574dee146a5bd11d *src/Makevars.win
-ef3d2e916a20f258ebbe1dd1218facd8 *src/RcppExports.cpp
+62594bbeecf22f8ebac2859102e4af5a *src/RcppExports.cpp
 ae4fe7a77c8c13550f523c90844947d5 *src/cmnorm.cpp
 e4b9e65fb798d0e359e0f15e757c11ac *src/cmnorm.h
 5fb3b670e9df87c0eb76f3d77d1e6c62 *src/dmnorm.cpp
